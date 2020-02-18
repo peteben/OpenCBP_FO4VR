@@ -4,7 +4,7 @@
 #pragma warning(disable : 4996)
 
 // TODO make better macro
-//#define LOG_ON
+#define LOG_ON
 
 CbpLogger::CbpLogger(const char *fname) {
 #ifdef LOG_ON
@@ -39,4 +39,4 @@ void CbpLogger::Error(const char *fmt...) {
 #endif
 }
 
-CbpLogger logger("Data\\F4SE\\Plugins\\cbp.log");
+CbpLogger logger("Data\\F4SE\\Plugins\\cbpc.log");

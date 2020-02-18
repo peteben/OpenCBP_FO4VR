@@ -101,7 +101,7 @@ extern "C"
 
         // populate info structure
         info->infoVersion = PluginInfo::kInfoVersion;
-        info->name = "CBP plugin";
+        info->name = "CBPC plugin";
         info->version = 24;
 
         // store plugin handle so we can identify ourselves later
@@ -131,7 +131,7 @@ extern "C"
 
     bool F4SEPlugin_Load(const F4SEInterface * f4se)
     {
-        logger.Error("CBP Loading\n");
+        logger.Error("CBPC Loading\n");
 
         g_task = (F4SETaskInterface *)f4se->QueryInterface(kInterface_Task);
         if (!g_task)

@@ -31,3 +31,16 @@ extern whitelist_t whitelist;
 extern std::vector<std::string> raceWhitelist;
 bool LoadConfig();
 void DumpWhitelistToLog();
+
+//Collision Stuff
+
+struct Sphere
+{
+	NiPoint3 offset0 = NiPoint3(0, 0, 0);
+	NiPoint3 offset100 = NiPoint3(0, 0, 0);
+	double radius0 = 4.0;
+	double radius100 = 4.0;
+	double radius100pwr2 = 16.0;
+	NiPoint3 worldPos = NiPoint3(0, 0, 0);
+	std::string NodeName;
+};
