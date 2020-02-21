@@ -159,6 +159,7 @@
     <ClInclude Include="..\f4se\f4se\GameExtraData.h" />
     <ClInclude Include="..\f4se\f4se\GameForms.h" />
     <ClInclude Include="..\f4se\f4se\GameRTTI.h" />
+    <ClInclude Include="..\f4se\f4se\GameSettings.h" />
     <ClInclude Include="..\f4se\f4se\GameTypes.h" />
     <ClInclude Include="..\f4se\f4se\GameUtilities.h" />
     <ClInclude Include="..\f4se\f4se\NiNodes.h" />
@@ -177,6 +178,7 @@
     <ClInclude Include="config.h" />
     <ClInclude Include="log.h" />
     <ClInclude Include="Thing.h" />
+    <ClInclude Include="Utility.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\detourxs-master\detourxs.cpp" />
@@ -184,6 +186,7 @@
     <ClCompile Include="..\f4se\f4se\GameExtraData.cpp" />
     <ClCompile Include="..\f4se\f4se\GameForms.cpp" />
     <ClCompile Include="..\f4se\f4se\GameRTTI.cpp" />
+    <ClCompile Include="..\f4se\f4se\GameSettings.cpp" />
     <ClCompile Include="..\f4se\f4se\GameTypes.cpp" />
     <ClCompile Include="..\f4se\f4se\GameUtilities.cpp" />
     <ClCompile Include="..\f4se\f4se\NiNodes.cpp" />
@@ -194,6 +197,7 @@
     <ClCompile Include="..\f4se\f4se\PapyrusNativeFunctions.cpp" />
     <ClCompile Include="..\f4se\f4se\PapyrusValue.cpp" />
     <ClCompile Include="..\f4se\f4se\PapyrusVM.cpp" />
+    <ClCompile Include="ActorEntry.cpp" />
     <ClCompile Include="ActorUtils.cpp" />
     <ClCompile Include="PapyrusOCBP.cpp" />
     <ClCompile Include="SimObj.cpp" />

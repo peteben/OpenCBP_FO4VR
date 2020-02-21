@@ -93,6 +93,12 @@
     <ClInclude Include="..\f4se\f4se\GameUtilities.h">
       <Filter>Header Files\api</Filter>
     </ClInclude>
+    <ClInclude Include="Utility.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\f4se\f4se\GameSettings.h">
+      <Filter>Header Files\api</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="log.cpp">
@@ -165,6 +171,12 @@
       <Filter>Source Files\api</Filter>
     </ClCompile>
     <ClCompile Include="..\f4se\f4se\GameUtilities.cpp">
+      <Filter>Source Files\api</Filter>
+    </ClCompile>
+    <ClCompile Include="ActorEntry.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\f4se\f4se\GameSettings.cpp">
       <Filter>Source Files\api</Filter>
     </ClCompile>
   </ItemGroup>

@@ -120,7 +120,23 @@ void UpdateActors() {
 
     // We scan the cell and build the list every time - only look up things by ID once
     // we retain all state by actor ID, in a map - it's cleared on cell change
-    std::vector<ActorEntry> actorEntries;
+    actorEntries.clear();
+
+
+	//if (tuningModeCollision != 0)
+	//{
+	//	frameCount++;
+	//	if (frameCount % (120 * tuningModeCollision) == 0)
+	//	{
+	//		loadMasterConfig();
+	//		loadCollisionConfig();
+	//		loadExtraCollisionConfig();
+
+	//		actors.clear();
+	//	}
+	//	if (frameCount >= 1000000)
+	//		frameCount = 0;
+	//}
 
     //logger.error("scan Cell\n");
     auto player = DYNAMIC_CAST(LookupFormByID(0x14), TESForm, Actor);
