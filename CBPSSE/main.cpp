@@ -146,6 +146,7 @@ extern "C"
         // Load initial config before the hook.
         logger.Error("Loading Config\n");
         LoadConfig();
+        LoadCollisionConfig();
         //g_messagingInterface->RegisterListener(0, "F4SE", MessageHandler); 
         logger.Error("Hooking Game\n");
         DoHook();

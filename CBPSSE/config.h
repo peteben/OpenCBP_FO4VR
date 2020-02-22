@@ -41,11 +41,11 @@ bool LoadConfig();
 void DumpWhitelistToLog();
 
 
-void Log(const int msgLogLevel, const char* fmt, ...);
+//void Log(const int msgLogLevel, const char* fmt, ...);
 
-#define LOG(fmt, ...) Log(LOGLEVEL_WARN, fmt, ##__VA_ARGS__)
-#define LOG_ERR(fmt, ...) Log(LOGLEVEL_ERR, fmt, ##__VA_ARGS__)
-#define LOG_INFO(fmt, ...) Log(LOGLEVEL_INFO, fmt, ##__VA_ARGS__)
+//#define LOG(fmt, ...) Log(LOGLEVEL_WARN, fmt, ##__VA_ARGS__)
+//#define LOG_ERR(fmt, ...) Log(LOGLEVEL_ERR, fmt, ##__VA_ARGS__)
+//#define LOG_INFO(fmt, ...) Log(LOGLEVEL_INFO, fmt, ##__VA_ARGS__)
 
 //Collision Stuff
 
@@ -91,9 +91,7 @@ extern std::vector<std::string> ColliderNodeLines;
 extern std::vector<ConfigLine> AffectedNodesList; //Nodes that can be collided with
 extern std::vector<ConfigLine> ColliderNodesList; //Nodes that can collide nodes
 
-void loadCollisionConfig();
-void loadMasterConfig();
-void loadExtraCollisionConfig();
+void LoadCollisionConfig();
 
 void ConfigLineSplitter(std::string &line, Sphere &newSphere);
 
@@ -106,9 +104,7 @@ void printSpheresMessage(std::string message, std::vector<Sphere> spheres);
 
 std::vector<std::string> ConfigLineVectorToStringVector(std::vector<ConfigLine> linesList);
 
-extern std::vector<std::string> affectedBones;
-
-bool GetSpecificNPCConfigForActor(std::string actorRefName, std::string actorRace, SpecificNPCConfig &snc);
+void DumpCollisionConfigsToLog();
 
 //bool IsActorMale(Actor* actor);
 
