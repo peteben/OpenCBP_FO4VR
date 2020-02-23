@@ -85,6 +85,13 @@ struct SpecificNPCConfig
 	std::vector<std::string> bellybulgenodesList;
 };
 
+extern int collisionSkipFrames;
+
+extern int gridsize;
+extern int adjacencyValue;
+extern int tuningModeCollision;
+extern float actorDistance;
+
 extern std::vector<std::string> AffectedNodeLines;
 extern std::vector<std::string> ColliderNodeLines;
 

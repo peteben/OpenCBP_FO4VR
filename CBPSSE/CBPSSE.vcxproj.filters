@@ -99,6 +99,15 @@
     <ClInclude Include="..\f4se\f4se\GameSettings.h">
       <Filter>Header Files\api</Filter>
     </ClInclude>
+    <ClInclude Include="CollisionHub.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Collision.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\f4se\f4se\GameReferences.h">
+      <Filter>Header Files\api</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="log.cpp">
@@ -177,6 +186,15 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\f4se\f4se\GameSettings.cpp">
+      <Filter>Source Files\api</Filter>
+    </ClCompile>
+    <ClCompile Include="CollisionHub.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Collision.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\f4se\f4se\GameReferences.cpp">
       <Filter>Source Files\api</Filter>
     </ClCompile>
   </ItemGroup>

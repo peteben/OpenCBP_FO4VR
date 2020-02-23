@@ -39,7 +39,7 @@ bool SimObj::Bind(Actor *actor, std::vector<std::string>& boneNames, config_t &c
                 logger.Info("Failed to find Bone %s for actor %08x\n", b.c_str(), actor->formID);
             } else {
                 //logger.info("Doing Bone %s for actor %08x\n", b, actor->formID);
-                things.emplace(b, Thing(bone, cs));
+                things.emplace(b, Thing(actor, bone, cs));
             }
         }
         UpdateConfig(config);

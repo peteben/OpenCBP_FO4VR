@@ -42,7 +42,6 @@ std::vector<ConfigLine> AffectedNodesList; //Nodes that can be collided with
 std::vector<ConfigLine> ColliderNodesList; //Nodes that can collide nodes
 
 int collisionSkipFrames = 0; //0
-int collisionSkipFramesPelvis = 5; //5
 int gridsize = 25;
 int adjacencyValue = 5;
 int tuningModeCollision = 0;

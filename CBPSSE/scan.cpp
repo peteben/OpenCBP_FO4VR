@@ -29,6 +29,7 @@
 #include "config.h"
 #include "PapyrusOCBP.h"
 #include "SimObj.h"
+#include "Utility.hpp"
 #include "f4se/GameRTTI.h"
 #include "f4se/GameForms.h"
 #include "f4se/GameReferences.h"
@@ -145,6 +146,15 @@ void UpdateActors() {
     auto cell = player->parentCell;
     if (!cell) goto FAILED;
 
+    float xLow = 9999999.0;
+    float xHigh = -9999999.0;
+    float yLow = 9999999.0;
+    float yHigh = -9999999.0;
+    float zLow = 9999999.0;
+    float zHigh = -9999999.0;
+
+    NiPoint3 actorPos;
+
     if (cell != curCell) {
         logger.Error("cell change %d\n", cell);
         curCell = cell;
@@ -158,6 +168,29 @@ void UpdateActors() {
                 // Attempt to get actors
                 auto actor = DYNAMIC_CAST(ref, TESObjectREFR, Actor);
                 if (actor && actor->unkF0) {
+
+                    if (actor->unkF0->rootNode)
+                    {
+                        //Getting border values;
+                        actorPos = actor->unkF0->rootNode->m_worldTransform.pos;
+
+                        if (distanceNoSqrt((*g_player)->unkF0->rootNode->m_worldTransform.pos, actorPos) > actorDistance)
+                            continue;
+
+                        if (xLow > actorPos.x)
+                                xLow = actorPos.x;
+                        if (xHigh < actorPos.x)
+                            xHigh = actorPos.x;
+                        if (yLow > actorPos.y)
+                            yLow = actorPos.y;
+                        if (yHigh < actorPos.y)
+                            yHigh = actorPos.y;
+                        if (zLow > actorPos.z)
+                            zLow = actorPos.z;
+                        if (zHigh < actorPos.z)
+                            zHigh = actorPos.z;
+                    }
+
                     // Find if actors is already being tracked
                     auto soIt = actors.find(actor->formID);
                     if (soIt == actors.end() && IsActorTrackable(actor)) {
@@ -250,19 +283,3 @@ FAILED:
     //logger.info("Update Time = %lld ns\n", elapsedMicroseconds.QuadPart);
 }
 
-
-//class ScanDelegate : public ITaskDelegate {
-//public:
-//    virtual void Run() {
-//        UpdateActors();
-//    }
-//    virtual void Dispose() {
-//        delete this;
-//    }
-//};
-//
-//
-//void scaleTest() {
-//    g_task->AddTask(new ScanDelegate());
-//    return;
-//}

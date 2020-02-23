@@ -3,7 +3,10 @@
 #include <f4se\NiObjects.h>
 #include <f4se\GameReferences.h>
 #include <time.h>
+
+#include "CollisionHub.h"
 #include "config.h"
+
 
 class Thing {
     BSFixedString boneName;
@@ -45,7 +48,7 @@ public:
 
     bool absRotX = 0;
 
-    Thing(NiAVObject *obj, BSFixedString &name);
+    Thing(Actor* actor, NiAVObject *obj, BSFixedString &name);
     ~Thing();
 
     NiAVObject* IsActorValid(Actor* actor);
@@ -55,4 +58,21 @@ public:
     
     void ShowPos(NiPoint3& p);
     void ShowRot(NiMatrix43& r);
+
+	//Performance skip
+	int skipFramesCount = 0;
+	int skipFramesPelvisCount = 0;
+	bool collisionOnLastFrame = false;
+
+
+	NiPoint3 lastColliderPosition = emptyPoint;
+
+	std::vector<Sphere> thingCollisionSpheres;
+
+	std::vector<Collision> ownColliders;
+
+
+	std::vector<Sphere> CreateThingCollisionSpheres(Actor * actor, std::string nodeName, float nodescale);
+
+	double movementMultiplier = 1.0;
 };

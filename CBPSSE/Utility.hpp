@@ -218,16 +218,9 @@ static inline bool stringStartsWith(std::string str, std::string prefix)
 		return false;
 }
 
-static inline double GetPercentageValue(double number1, double number2, float perc)
+static inline double GetPercentageValue(double number1, double number2)
 {
-	if (perc == 100)
-		return number2;
-	else if (perc == 0)
-		return number1;
-	else
-	{
-		return number1 + ((number2 - number1)*(perc / 100.0f));
-	}
+	return number1 + ((number2 - number1)*(50.0 / 100.0f));
 }
 
 static inline double vlibGetSetting(const char * name) {

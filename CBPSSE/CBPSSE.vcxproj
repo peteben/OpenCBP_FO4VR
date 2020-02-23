@@ -158,6 +158,7 @@
     <ClInclude Include="..\f4se\f4se\GameAPI.h" />
     <ClInclude Include="..\f4se\f4se\GameExtraData.h" />
     <ClInclude Include="..\f4se\f4se\GameForms.h" />
+    <ClInclude Include="..\f4se\f4se\GameReferences.h" />
     <ClInclude Include="..\f4se\f4se\GameRTTI.h" />
     <ClInclude Include="..\f4se\f4se\GameSettings.h" />
     <ClInclude Include="..\f4se\f4se\GameTypes.h" />
@@ -172,6 +173,8 @@
     <ClInclude Include="..\f4se\f4se\PapyrusVM.h" />
     <ClInclude Include="ActorEntry.h" />
     <ClInclude Include="ActorUtils.h" />
+    <ClInclude Include="Collision.h" />
+    <ClInclude Include="CollisionHub.h" />
     <ClInclude Include="INIReader.h" />
     <ClInclude Include="PapyrusOCBP.h" />
     <ClInclude Include="SimObj.h" />
@@ -185,6 +188,7 @@
     <ClCompile Include="..\f4se\f4se\GameAPI.cpp" />
     <ClCompile Include="..\f4se\f4se\GameExtraData.cpp" />
     <ClCompile Include="..\f4se\f4se\GameForms.cpp" />
+    <ClCompile Include="..\f4se\f4se\GameReferences.cpp" />
     <ClCompile Include="..\f4se\f4se\GameRTTI.cpp" />
     <ClCompile Include="..\f4se\f4se\GameSettings.cpp" />
     <ClCompile Include="..\f4se\f4se\GameTypes.cpp" />
@@ -199,6 +203,8 @@
     <ClCompile Include="..\f4se\f4se\PapyrusVM.cpp" />
     <ClCompile Include="ActorEntry.cpp" />
     <ClCompile Include="ActorUtils.cpp" />
+    <ClCompile Include="Collision.cpp" />
+    <ClCompile Include="CollisionHub.cpp" />
     <ClCompile Include="PapyrusOCBP.cpp" />
     <ClCompile Include="SimObj.cpp" />
     <ClCompile Include="config.cpp" />

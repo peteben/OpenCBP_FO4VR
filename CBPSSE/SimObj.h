@@ -6,6 +6,8 @@
 #include "Thing.h"
 #include "config.h"
 
+#define NINODE_CHILDREN(ninode) ((NiTArray <NiAVObject *> *) ((char*)(&(ninode->m_children))))
+
 class SimObj {
     UInt32 id = 0;
     bool bound = false;
