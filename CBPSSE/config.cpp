@@ -322,68 +322,22 @@ void LoadCollisionConfig()
 
 void ConfigLineSplitter(std::string& line, Sphere& newSphere)
 {
-    std::vector<std::string> lowHighSplitted = split(line, '|');
-    if (lowHighSplitted.size() == 1)
+    std::vector<std::string> splittedFloats = split(line, ',');
+    if (splittedFloats.size() > 0)
     {
-        std::vector<std::string> splittedFloats = split(lowHighSplitted[0], ',');
-        if (splittedFloats.size() > 0)
-        {
-            newSphere.offset0.x = strtof(splittedFloats[0].c_str(), 0);
-            newSphere.offset100.x = newSphere.offset0.x;
-        }
-        if (splittedFloats.size() > 1)
-        {
-            newSphere.offset0.y = strtof(splittedFloats[1].c_str(), 0);
-            newSphere.offset100.y = newSphere.offset0.y;
-        }
-        if (splittedFloats.size() > 2)
-        {
-            newSphere.offset0.z = strtof(splittedFloats[2].c_str(), 0);
-            newSphere.offset100.z = newSphere.offset0.z;
-        }
-        if (splittedFloats.size() > 3)
-        {
-            newSphere.radius0 = strtof(splittedFloats[3].c_str(), 0);
-            newSphere.radius100 = newSphere.radius0;
-        }
+        newSphere.offset.x = strtof(splittedFloats[0].c_str(), 0);
     }
-    else if (lowHighSplitted.size() > 1)
+    if (splittedFloats.size() > 1)
     {
-        std::vector<std::string> splittedFloats = split(lowHighSplitted[0], ',');
-        if (splittedFloats.size() > 0)
-        {
-            newSphere.offset0.x = strtof(splittedFloats[0].c_str(), 0);
-        }
-        if (splittedFloats.size() > 1)
-        {
-            newSphere.offset0.y = strtof(splittedFloats[1].c_str(), 0);
-        }
-        if (splittedFloats.size() > 2)
-        {
-            newSphere.offset0.z = strtof(splittedFloats[2].c_str(), 0);
-        }
-        if (splittedFloats.size() > 3)
-        {
-            newSphere.radius0 = strtof(splittedFloats[3].c_str(), 0);
-        }
-
-        splittedFloats = split(lowHighSplitted[1], ',');
-        if (splittedFloats.size() > 0)
-        {
-            newSphere.offset100.x = strtof(splittedFloats[0].c_str(), 0);
-        }
-        if (splittedFloats.size() > 1)
-        {
-            newSphere.offset100.y = strtof(splittedFloats[1].c_str(), 0);
-        }
-        if (splittedFloats.size() > 2)
-        {
-            newSphere.offset100.z = strtof(splittedFloats[2].c_str(), 0);
-        }
-        if (splittedFloats.size() > 3)
-        {
-            newSphere.radius100 = strtof(splittedFloats[3].c_str(), 0);
-        }
+        newSphere.offset.y = strtof(splittedFloats[1].c_str(), 0);
+    }
+    if (splittedFloats.size() > 2)
+    {
+        newSphere.offset.z = strtof(splittedFloats[2].c_str(), 0);
+    }
+    if (splittedFloats.size() > 3)
+    {
+        newSphere.radius = strtof(splittedFloats[3].c_str(), 0);
     }
 }
 
@@ -448,21 +402,13 @@ void printSpheresMessage(std::string message, std::vector<Sphere> spheres)
     for (int i = 0; i < spheres.size(); i++)
     {
         message += " Spheres: ";
-        message += std::to_string(spheres[i].offset0.x);
+        message += std::to_string(spheres[i].offset.x);
         message += ",";
-        message += std::to_string(spheres[i].offset0.y);
+        message += std::to_string(spheres[i].offset.y);
         message += ",";
-        message += std::to_string(spheres[i].offset0.z);
+        message += std::to_string(spheres[i].offset.z);
         message += ",";
-        message += std::to_string(spheres[i].radius0);
-        message += " | ";
-        message += std::to_string(spheres[i].offset100.x);
-        message += ",";
-        message += std::to_string(spheres[i].offset100.y);
-        message += ",";
-        message += std::to_string(spheres[i].offset100.z);
-        message += ",";
-        message += std::to_string(spheres[i].radius100);
+        message += std::to_string(spheres[i].radius);
     }
     logger.Info("%s\n", message.c_str());
 }

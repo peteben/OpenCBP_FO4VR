@@ -8,11 +8,11 @@ Collision::Collision(NiAVObject* node, std::vector<Sphere> spheres)
 	collisionSpheres = spheres;
 	for (int j = 0; j < collisionSpheres.size(); j++)
 	{
-		collisionSpheres[j].offset100 = GetPointFromPercentage(spheres[j].offset0, spheres[j].offset100);
+		collisionSpheres[j].offset = spheres[j].offset;
 
-		collisionSpheres[j].radius100 = GetPercentageValue(spheres[j].radius0, spheres[j].radius100)*node->m_worldTransform.scale;
+		collisionSpheres[j].radius = spheres[j].radius*node->m_worldTransform.scale;
 
-		collisionSpheres[j].radius100pwr2 = spheres[j].radius100*spheres[j].radius100;
+		collisionSpheres[j].radiuspwr2 = spheres[j].radius*spheres[j].radius;
 
 		collisionSpheres[j].NodeName = spheres[j].NodeName;
 	}
@@ -32,7 +32,7 @@ bool Collision::IsItColliding(NiPoint3 &collisiondif, std::vector<Sphere> thingC
 	{
 		for (int i = 0; i < collisionSpheres.size(); i++)
 		{			
-			float limitDistance = thingCollisionSpheres[j].radius100 + collisionSpheres[i].radius100;
+			float limitDistance = thingCollisionSpheres[j].radius + collisionSpheres[i].radius;
 
 			NiPoint3 thingSpherePosition = thingCollisionSpheres[j].worldPos;
 			NiPoint3 colSpherePosition = collisionSpheres[i].worldPos;
@@ -107,22 +107,10 @@ NiPoint3 Collision::CheckCollision(bool &isItColliding, std::vector<Sphere> thin
 		
 		if (isItColliding)
 		{
-			//float timeMultiplier = timeTick / (float)deltaT;
-
-			//collisionDiff *= timeMultiplier;
-
-			//if (lastColliderPosition.x != 0 || lastColliderPosition.y != 0 || lastColliderPosition.z != 0)
-			//{
-			//	float distanceInOneCall = distance(lastColliderPosition, CollisionObject->m_worldTransform.pos);
-			//	//if (distanceInOneCall > 1)
-			//		collisionDiff *= distanceInOneCall;
-			//}
-
 			collisionDiff.x = clamp(collisionDiff.x, -maxOffset, maxOffset);
 			collisionDiff.y = clamp(collisionDiff.y, -maxOffset, maxOffset);
 			collisionDiff.z = clamp(collisionDiff.z, -maxOffset, maxOffset);
 		}
-		//lastColliderPosition = CollisionObject->m_worldTransform.pos;
 	}
 
 	/*QueryPerformanceCounter(&endingTime);

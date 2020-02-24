@@ -140,20 +140,22 @@ void UpdateActors() {
 	//}
 
     //logger.error("scan Cell\n");
+    NiPoint3 actorPos;
+
+    // If no player then return
     auto player = DYNAMIC_CAST(LookupFormByID(0x14), TESForm, Actor);
     if (!player || !player->unkF0) goto FAILED;
 
+    // If player has no cell then return
     auto cell = player->parentCell;
     if (!cell) goto FAILED;
 
-    float xLow = 9999999.0;
+    float xLow = 9999999.0; 
     float xHigh = -9999999.0;
     float yLow = 9999999.0;
     float yHigh = -9999999.0;
     float zLow = 9999999.0;
     float zHigh = -9999999.0;
-
-    NiPoint3 actorPos;
 
     if (cell != curCell) {
         logger.Error("cell change %d\n", cell);
@@ -174,11 +176,13 @@ void UpdateActors() {
                         //Getting border values;
                         actorPos = actor->unkF0->rootNode->m_worldTransform.pos;
 
-                        if (distanceNoSqrt((*g_player)->unkF0->rootNode->m_worldTransform.pos, actorPos) > actorDistance)
+                        if (distanceNoSqrt((*g_player)->unkF0->rootNode->m_worldTransform.pos, actorPos) > actorDistance) {
+                            logger.Info("Actor with form ID %08x too far away\n", actor->formID);
                             continue;
+                        }
 
                         if (xLow > actorPos.x)
-                                xLow = actorPos.x;
+                            xLow = actorPos.x;
                         if (xHigh < actorPos.x)
                             xHigh = actorPos.x;
                         if (yLow > actorPos.y)
@@ -211,6 +215,65 @@ void UpdateActors() {
                 }
             }
         }
+    }
+
+    // If valid actorPos?
+    if (xLow < 9999999 && yLow < 9999999 && zLow < 9999999 && xHigh > -9999999 && yHigh > -9999999 && zHigh > -9999999)
+    {
+        xLow -= 100.0;
+        yLow -= 100.0;
+        zLow -= 100.0;
+        xHigh += 100.0;
+        yHigh += 100.0;
+        zHigh += 100.0;
+
+        //SaveLastColliderPositions();
+
+        otherColliders.clear();
+
+        CreateOtherColliders();
+
+        UpdateColliderPositions(otherColliders);
+
+        //LoadLastColliderPositions();
+
+        //Spatial Hashing
+        hashSize = floor((xHigh - xLow) / gridsize) * floor((yHigh - yLow) / gridsize) * floor((zHigh - zLow) / gridsize);
+
+        /*if (frameCount % 45 == 0)
+        LOG_INFO("Hashsize=%d", hashSize);*/
+
+        partitions.clear();
+
+        logger.Info("Starting collider hashing\n");
+
+        std::vector<long> ids;
+        std::vector<long> hashIdList;
+        for (int i = 0; i < otherColliders.size(); i++)
+        {
+            //LOG_INFO("otherColliders[%d]: %s",i, otherColliders[i].CollisionObject->m_name);
+
+            ids.clear();
+            for (int j = 0; j < otherColliders[i].collisionSpheres.size(); j++)
+            {
+                hashIdList = GetHashIdsFromPos(otherColliders[i].collisionSpheres[j].worldPos, otherColliders[i].collisionSpheres[j].radius, hashSize);
+
+                for (int m = 0; m < hashIdList.size(); m++)
+                {
+                    // Place all unfound IDs into ids and partitions
+                    if (std::find(ids.begin(), ids.end(), hashIdList[m]) != ids.end())
+                        continue;
+                    else
+                    {
+                        //LOG_INFO("ids.emplace_back(%d)", hashIdList[m]);
+                        ids.emplace_back(hashIdList[m]);
+                        partitions[hashIdList[m]].partitionCollisions.emplace_back(otherColliders[i]);
+                    }
+                }
+            }
+        }
+        //LOG_INFO("End of collider hashing");
+        //LOG_INFO("Partitions size=%d", partitions.size());
     }
 
     //static bool done = false;
@@ -254,7 +317,7 @@ void UpdateActors() {
             if (simObj.IsBound()) {
                 // need better system for update config
                 if (IsActorTorsoArmorEquipped(a.actor) && detectArmor) {
-                    logger.Info("torso armor detected on actor %x\n", a.actor->formID);
+//                    logger.Info("torso armor detected on actor %x\n", a.actor->formID);
                     simObj.UpdateConfig(configArmor);
                 }
                 else {
@@ -264,7 +327,7 @@ void UpdateActors() {
             }
             else {
                 if (IsActorTorsoArmorEquipped(a.actor) && detectArmor) {
-                    logger.Info("torso armor detected on actor %x\n", a.actor->formID);
+  //                  logger.Info("torso armor detected on actor %x\n", a.actor->formID);
                     simObj.Bind(a.actor, boneNames, configArmor);
                 }
                 else {

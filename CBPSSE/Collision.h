@@ -37,10 +37,10 @@ public:
 
 };
 
-static inline NiPoint3 GetPointFromPercentage(NiPoint3 lowWeight, NiPoint3 highWeight)
-{
-	return ((highWeight - lowWeight)*(50 / 100)) + lowWeight;
-}
+//static inline NiPoint3 GetPointFromPercentage(NiPoint3 lowWeight, NiPoint3 highWeight)
+//{
+//	return lowWeight;
+//}
 
 static inline float distance(NiPoint3 po1, NiPoint3 po2)
 {

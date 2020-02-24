@@ -49,8 +49,6 @@ void CreateOtherColliders()
 		const char * actorrefname = "";
 		std::string actorRace = "";
 
-		SpecificNPCConfig snc;
-
 		if (actorEntries[i].actor->formID == 0x14) //If Player
 		{
 			actorrefname = "Player";
@@ -107,29 +105,25 @@ void UpdateColliderPositions(std::vector<Collision> &colliderList)
 	{
 		for (int j = 0; j < colliderList[i].collisionSpheres.size(); j++)
 		{
-			colliderList[i].collisionSpheres[j].worldPos = colliderList[i].CollisionObject->m_worldTransform.pos + colliderList[i].CollisionObject->m_worldTransform.rot*colliderList[i].collisionSpheres[j].offset100;
+			colliderList[i].collisionSpheres[j].worldPos = colliderList[i].CollisionObject->m_worldTransform.pos
+														+ colliderList[i].CollisionObject->m_worldTransform.rot
+														*colliderList[i].collisionSpheres[j].offset;
 		}
-
-		#ifdef RUNTIME_VR_VERSION_1_4_15
-		for (int j = 0; j < colliderList[i].collisionTriangles.size(); j++)
-		{
-			colliderList[i].collisionTriangles[j].a = colliderList[i].CollisionObject->m_worldTransform.pos + colliderList[i].CollisionObject->m_worldTransform.rot*colliderList[i].collisionTriangles[j].orga;
-			colliderList[i].collisionTriangles[j].b = colliderList[i].CollisionObject->m_worldTransform.pos + colliderList[i].CollisionObject->m_worldTransform.rot*colliderList[i].collisionTriangles[j].orgb;
-			colliderList[i].collisionTriangles[j].c = colliderList[i].CollisionObject->m_worldTransform.pos + colliderList[i].CollisionObject->m_worldTransform.rot*colliderList[i].collisionTriangles[j].orgc;
-		}
-		#endif
 	}
 }
 
+//
 std::vector<long> GetHashIdsFromPos(NiPoint3 pos, float radius, long size)
 {
+	// adjacencyValue is configurable value that extends the radius length
 	float radiusplus = radius + adjacencyValue;
 
 	std::vector<long> hashIdList;
 	if (size > 0)
 	{
 		long hashId = unsigned(floor(pos.x / gridsize)*a + floor(pos.y / gridsize)*b + floor(pos.z / gridsize)*c) % size;
-		logger.Info("hashId=%d\n", hashId);
+		//logger.Info("hashId=%d\n", hashId);
+		// if hashId is good as is then store it
 		if (hashId < size && hashId >= 0)
 			hashIdList.emplace_back(hashId);
 

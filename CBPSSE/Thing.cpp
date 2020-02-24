@@ -83,8 +83,6 @@ std::vector<Sphere> Thing::CreateThingCollisionSpheres(Actor * actor, std::strin
 
 	const char * actorrefname = "";
 
-	SpecificNPCConfig snc;
-
 	if (actor->formID == 0x14) //If Player
 	{
 		actorrefname = "Player";
@@ -107,11 +105,11 @@ std::vector<Sphere> Thing::CreateThingCollisionSpheres(Actor * actor, std::strin
 
 			for(int j=0; j<spheres.size(); j++)
 			{
-				spheres[j].offset100 = GetPointFromPercentage(spheres[j].offset0, spheres[j].offset100);
+				spheres[j].offset = spheres[j].offset;
 
-				spheres[j].radius100 = GetPercentageValue(spheres[j].radius0, spheres[j].radius100)*nodescale;
+				spheres[j].radius = spheres[j].radius * nodescale;
 
-				spheres[j].radius100pwr2 = spheres[j].radius100*spheres[j].radius100;
+				spheres[j].radiuspwr2 = spheres[j].radius * spheres[j].radius;
 			}
 			break;
 		}
@@ -249,6 +247,8 @@ void Thing::Update(Actor *actor) {
         return;
     }
 
+    objRotation = obj->m_worldTransform.rot;
+
 	bool IsThereCollision = false;
 	NiPoint3 collisionDiff = emptyPoint;
 	long originalDeltaT = deltaT;
@@ -260,17 +260,66 @@ void Thing::Update(Actor *actor) {
 	float varGravityCorrection = -1*gravityCorrection;
 	float varGravityBias = gravityBias;
 
+#if TRANSFORM_DEBUG
+    auto sceneObj = obj;
+    while (sceneObj->m_parent && sceneObj->m_name != "skeleton.nif")
+    {
+        logger.info(sceneObj->m_name);
+        logger.info("\n---\n");
+        logger.error("Actual m_localTransform.pos: ");
+        showPos(sceneObj->m_localTransform.pos);
+        logger.error("Actual m_worldTransform.pos: ");
+        showPos(sceneObj->m_worldTransform.pos);
+        logger.info("---\n");
+        //logger.error("Actual m_localTransform.rot Matrix:\n");
+        showRot(sceneObj->m_localTransform.rot);
+        //logger.error("Actual m_worldTransform.rot Matrix:\n");
+        showRot(sceneObj->m_worldTransform.rot);
+        logger.info("---\n");
+        //if (sceneObj->m_parent) {
+        //	logger.error("Calculated m_worldTransform.pos: ");
+        //	showPos((sceneObj->m_parent->m_worldTransform.rot.Transpose() * sceneObj->m_localTransform.pos) + sceneObj->m_parent->m_worldTransform.pos);
+        //	logger.error("Calculated m_worldTransform.rot Matrix:\n");
+        //	showRot(sceneObj->m_localTransform.rot * sceneObj->m_parent->m_worldTransform.rot);
+        //}
+        sceneObj = sceneObj->m_parent;
+    }
+#endif
+
+    auto skeletonObj = obj;
+    NiAVObject* comObj;
+    bool skeletonFound = false;
+    while (skeletonObj->m_parent)
+    {
+        if (skeletonObj->m_parent->m_name == BSFixedString(COM_boneName)) {
+            comObj = skeletonObj->m_parent;
+        }
+        else if (skeletonObj->m_parent->m_name == BSFixedString(skeletonNif_boneName)) {
+            skeletonObj = skeletonObj->m_parent;
+            skeletonFound = true;
+            break;
+        }
+        skeletonObj = skeletonObj->m_parent;
+    }
+    if (skeletonFound == false) {
+        logger.Error("Couldn't find skeleton for actor %08x\n", actor->formID);
+        return;
+    }
+
+    objRotation = skeletonObj->m_worldTransform.rot.Transpose();
+
 	std::vector<long> thingIdList;
 	std::vector<long> hashIdList;
+    logger.Info("Collisions on: %d, hashSize: %d\n", collisionsOn, hashSize);
 	if (collisionsOn && hashSize>0)
 	{
-		//LOG("Before Collision Stuff Start");
+		logger.Info("Before Collision Stuff Start\n");
 		// Collision Stuff Start
 		for (int i = 0; i < thingCollisionSpheres.size(); i++)
 		{
-			thingCollisionSpheres[i].worldPos = oldWorldPos + (objRotation*thingCollisionSpheres[i].offset100);
+			thingCollisionSpheres[i].worldPos = oldWorldPos + (objRotation*thingCollisionSpheres[i].offset);
 			//printNiPointMessage("thingCollisionSpheres[i].worldPos", thingCollisionSpheres[i].worldPos);
-			hashIdList = GetHashIdsFromPos(thingCollisionSpheres[i].worldPos, thingCollisionSpheres[i].radius100, hashSize);
+			hashIdList = GetHashIdsFromPos(thingCollisionSpheres[i].worldPos, thingCollisionSpheres[i].radius, hashSize);
 			for(int m=0; m<hashIdList.size(); m++)
 			{
 				if (!(std::find(thingIdList.begin(), thingIdList.end(), hashIdList[m]) != thingIdList.end()))
@@ -301,7 +350,7 @@ void Thing::Update(Actor *actor) {
 				{
 						for (int l = 0; l < thingCollisionSpheres.size(); l++)
 						{
-							thingCollisionSpheres[l].worldPos = oldWorldPos + (objRotation*thingCollisionSpheres[l].offset100) + collisionVector;
+							thingCollisionSpheres[l].worldPos = oldWorldPos + (objRotation*thingCollisionSpheres[l].offset) + collisionVector;
 						}
 					}
 					lastcollisionVector = collisionVector;
@@ -337,51 +386,6 @@ void Thing::Update(Actor *actor) {
 
 	NiPoint3 posDelta = emptyPoint;
 
-#if TRANSFORM_DEBUG
-    auto sceneObj = obj;
-    while (sceneObj->m_parent && sceneObj->m_name != "skeleton.nif")
-    {
-        logger.info(sceneObj->m_name);
-        logger.info("\n---\n");
-        logger.error("Actual m_localTransform.pos: ");
-        showPos(sceneObj->m_localTransform.pos);
-        logger.error("Actual m_worldTransform.pos: ");
-        showPos(sceneObj->m_worldTransform.pos);
-        logger.info("---\n");
-        //logger.error("Actual m_localTransform.rot Matrix:\n");
-        showRot(sceneObj->m_localTransform.rot);
-        //logger.error("Actual m_worldTransform.rot Matrix:\n");
-        showRot(sceneObj->m_worldTransform.rot);
-        logger.info("---\n");
-        //if (sceneObj->m_parent) {
-        //	logger.error("Calculated m_worldTransform.pos: ");
-        //	showPos((sceneObj->m_parent->m_worldTransform.rot.Transpose() * sceneObj->m_localTransform.pos) + sceneObj->m_parent->m_worldTransform.pos);
-        //	logger.error("Calculated m_worldTransform.rot Matrix:\n");
-        //	showRot(sceneObj->m_localTransform.rot * sceneObj->m_parent->m_worldTransform.rot);
-        //}
-        sceneObj = sceneObj->m_parent;	
-    }
-#endif
-
-    auto skeletonObj = obj;
-    NiAVObject * comObj;
-    bool skeletonFound = false;
-    while (skeletonObj->m_parent)
-    {
-        if (skeletonObj->m_parent->m_name == BSFixedString(COM_boneName)) {
-            comObj = skeletonObj->m_parent;
-        }
-        else if (skeletonObj->m_parent->m_name == BSFixedString(skeletonNif_boneName)) {
-            skeletonObj = skeletonObj->m_parent;
-            skeletonFound = true;
-            break;
-        }
-        skeletonObj = skeletonObj->m_parent;
-    }
-    if (skeletonFound == false) {
-        logger.Error("Couldn't find skeleton for actor %08x\n", actor->formID);
-        return;
-    }
 #if DEBUG
     logger.error("bone %s for actor %08x with parent %s\n", boneName.c_str(), actor->formID, skeletonObj->m_name.c_str());
     showRot(skeletonObj->m_worldTransform.rot);
@@ -467,8 +471,8 @@ void Thing::Update(Actor *actor) {
             thingIdList.clear();
             for (int i = 0; i < thingCollisionSpheres.size(); i++)
             {
-                thingCollisionSpheres[i].worldPos = (objRotation * thingCollisionSpheres[i].offset100) + maybePos;
-                hashIdList = GetHashIdsFromPos(thingCollisionSpheres[i].worldPos, thingCollisionSpheres[i].radius100, hashSize);
+                thingCollisionSpheres[i].worldPos = (objRotation * thingCollisionSpheres[i].offset) + maybePos;
+                hashIdList = GetHashIdsFromPos(thingCollisionSpheres[i].worldPos, thingCollisionSpheres[i].radius, hashSize);
                 for (int m = 0; m < hashIdList.size(); m++)
                 {
                     if (!(std::find(thingIdList.begin(), thingIdList.end(), hashIdList[m]) != thingIdList.end()))
@@ -501,7 +505,7 @@ void Thing::Update(Actor *actor) {
                         {
                             for (int l = 0; l < thingCollisionSpheres.size(); l++)
                             {
-                                thingCollisionSpheres[l].worldPos = (objRotation * thingCollisionSpheres[l].offset100) + maybePos + collisionVector;
+                                thingCollisionSpheres[l].worldPos = (objRotation * thingCollisionSpheres[l].offset) + maybePos + collisionVector;
                             }
                         }
                         lastcollisionVector = collisionVector;

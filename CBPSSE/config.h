@@ -51,11 +51,9 @@ void DumpWhitelistToLog();
 
 struct Sphere
 {
-	NiPoint3 offset0 = NiPoint3(0, 0, 0);
-	NiPoint3 offset100 = NiPoint3(0, 0, 0);
-	double radius0 = 4.0;
-	double radius100 = 4.0;
-	double radius100pwr2 = 16.0;
+	NiPoint3 offset = NiPoint3(0, 0, 0);
+	double radius = 4.0;
+	double radiuspwr2 = 16.0;
 	NiPoint3 worldPos = NiPoint3(0, 0, 0);
 	std::string NodeName;
 };
@@ -64,25 +62,6 @@ struct ConfigLine
 {
 	std::vector<Sphere> CollisionSpheres;
 	std::string NodeName;
-};
-
-struct SpecificNPCConfig
-{
-	std::vector<std::string> charactersList;
-	std::vector<std::string> raceList;
-
-	std::vector<std::string> AffectedNodeLines;
-	std::vector<std::string> ColliderNodeLines;
-
-	std::vector<ConfigLine> AffectedNodesList;
-
-	std::vector<ConfigLine> ColliderNodesList;
-
-	float bellybulge;
-	float bellybulgePosition;
-	float bellybulgemax;
-	float bellybulgeposlowest;
-	std::vector<std::string> bellybulgenodesList;
 };
 
 extern int collisionSkipFrames;

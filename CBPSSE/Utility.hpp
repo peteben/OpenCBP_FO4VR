@@ -98,7 +98,10 @@ static inline std::string CurrentTime()
 	std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 
 	char buf[100] = { 0 };
-	std::strftime(buf, sizeof(buf), "%d-%m-%Y %H:%M:%S", std::localtime(&now));
+	tm timeStruct;
+	errno_t time_good = localtime_s(&timeStruct, &now);
+	if (time_good)
+		std::strftime(buf, sizeof(buf), "%d-%m-%Y %H:%M:%S", &timeStruct);
 	return buf;
 }
 
@@ -218,10 +221,10 @@ static inline bool stringStartsWith(std::string str, std::string prefix)
 		return false;
 }
 
-static inline double GetPercentageValue(double number1, double number2)
-{
-	return number1 + ((number2 - number1)*(50.0 / 100.0f));
-}
+//static inline double GetPercentageValue(double number1, double number2)
+//{
+//	return number1 + ((number2 - number1)*(50.0 / 100.0f));
+//}
 
 static inline double vlibGetSetting(const char * name) {
 	Setting * setting = GetINISetting(name);
