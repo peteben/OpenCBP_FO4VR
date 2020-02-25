@@ -310,10 +310,10 @@ void Thing::Update(Actor *actor) {
 
 	std::vector<long> thingIdList;
 	std::vector<long> hashIdList;
-    logger.Info("Collisions on: %d, hashSize: %d\n", collisionsOn, hashSize);
+    //logger.Info("Collisions on: %d, hashSize: %d\n", collisionsOn, hashSize);
 	if (collisionsOn && hashSize>0)
 	{
-		logger.Info("Before Collision Stuff Start\n");
+		//logger.Info("Before Collision Stuff Start\n");
 		// Collision Stuff Start
 		for (int i = 0; i < thingCollisionSpheres.size(); i++)
 		{
@@ -336,29 +336,31 @@ void Thing::Update(Actor *actor) {
 			long id = thingIdList[j];
 			if (partitions.find(id) != partitions.end())
 			{
-				for (int i = 0; i < partitions[id].partitionCollisions.size(); i++)
-				{
-					if (partitions[id].partitionCollisions[i].colliderActor == actor && partitions[id].partitionCollisions[i].colliderNodeName.find("Genital") != std::string::npos)
-						continue;
+                for (int i = 0; i < partitions[id].partitionCollisions.size(); i++)
+                {
+                    //if (partitions[id].partitionCollisions[i].colliderActor == actor && partitions[id].partitionCollisions[i].colliderNodeName.find("Penis_") != std::string::npos)
+                    //	continue;
 
-					if (partitions[id].partitionCollisions[i].colliderActor == actor && std::strcmp(partitions[id].partitionCollisions[i].colliderNodeName.c_str(), boneName.c_str())==0 )
-						continue;
+                    //if (partitions[id].partitionCollisions[i].colliderActor == actor && std::strcmp(partitions[id].partitionCollisions[i].colliderNodeName.c_str(), boneName.c_str()) == 0)
+                    //    continue;
 
-					callCount++;
+                    callCount++;
 
-					if (!CompareNiPoints(lastcollisionVector, collisionVector))
-				{
-						for (int l = 0; l < thingCollisionSpheres.size(); l++)
-						{
-							thingCollisionSpheres[l].worldPos = oldWorldPos + (objRotation*thingCollisionSpheres[l].offset) + collisionVector;
-						}
-					}
-					lastcollisionVector = collisionVector;
+                    if (!CompareNiPoints(lastcollisionVector, collisionVector))
+                    {
+                        for (int l = 0; l < thingCollisionSpheres.size(); l++)
+                        {
+                            thingCollisionSpheres[l].worldPos = oldWorldPos + (objRotation * thingCollisionSpheres[l].offset) + collisionVector;
+                        }
+                    }
+                    lastcollisionVector = collisionVector;
 
-					bool colliding = false;
-					collisionDiff = partitions[id].partitionCollisions[i].CheckCollision(colliding, thingCollisionSpheres, timeTick, originalDeltaT, maxOffsetX, false); // TODO fix this
-					if (colliding)
-						IsThereCollision = true;
+                    bool colliding = false;
+                    collisionDiff = partitions[id].partitionCollisions[i].CheckCollision(colliding, thingCollisionSpheres, timeTick, originalDeltaT, maxOffsetX, false); // TODO fix this
+                    if (colliding) {
+                        logger.Info("Collision detected!\n");
+                        IsThereCollision = true;
+                    }   
 
 					collisionVector = collisionVector + collisionDiff*movementMultiplier;
 					collisionVector.x = clamp(collisionVector.x, -maxOffsetX, maxOffsetX);
@@ -383,7 +385,6 @@ void Thing::Update(Actor *actor) {
 	}
 
 	NiPoint3 newPos = oldWorldPos;
-
 	NiPoint3 posDelta = emptyPoint;
 
 #if DEBUG
@@ -492,11 +493,11 @@ void Thing::Update(Actor *actor) {
                 {
                     for (int i = 0; i < partitions[id].partitionCollisions.size(); i++)
                     {
-                        if (partitions[id].partitionCollisions[i].colliderActor == actor && partitions[id].partitionCollisions[i].colliderNodeName.find("Genital") != std::string::npos)
-                            continue;
+                        //if (partitions[id].partitionCollisions[i].colliderActor == actor && partitions[id].partitionCollisions[i].colliderNodeName.find("Genital") != std::string::npos)
+                        //    continue;
 
-                        if (partitions[id].partitionCollisions[i].colliderActor == actor && std::strcmp(partitions[id].partitionCollisions[i].colliderNodeName.c_str(), boneName.c_str()) == 0)
-                            continue;
+                        //if (partitions[id].partitionCollisions[i].colliderActor == actor && std::strcmp(partitions[id].partitionCollisions[i].colliderNodeName.c_str(), boneName.c_str()) == 0)
+                        //    continue;
 
                         callCount++;
                         //partitions[id].partitionCollisions[i].CollidedWeight = actorWeight;
@@ -514,12 +515,14 @@ void Thing::Update(Actor *actor) {
                         collisionDiff = partitions[id].partitionCollisions[i].CheckCollision(colliding, thingCollisionSpheres, timeTick, originalDeltaT, maxOffsetX, false);
                         if (colliding)
                         {
+                            logger.Info("2nd Collision detected!\n");
+                             
                             velocity = emptyPoint;
                             maybeNot = true;
                             collisionVector = collisionVector + collisionDiff;
-                            collisionVector.x = clamp(collisionVector.x, -maxOffsetX, maxOffsetX);
-                            collisionVector.y = clamp(collisionVector.y, -maxOffsetY, maxOffsetY);
-                            collisionVector.z = clamp(collisionVector.z, -maxOffsetZ, maxOffsetZ);
+                            //collisionVector.x = clamp(collisionVector.x, -maxOffsetX, maxOffsetX);
+                            //collisionVector.y = clamp(collisionVector.y, -maxOffsetY, maxOffsetY);
+                            //collisionVector.z = clamp(collisionVector.z, -maxOffsetZ, maxOffsetZ);
                         }
                     }
                 }

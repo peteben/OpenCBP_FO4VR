@@ -101,13 +101,30 @@ void CreateOtherColliders()
 
 void UpdateColliderPositions(std::vector<Collision> &colliderList)
 {
+	const char* skeletonNif_boneName = "skeleton.nif";
+	bool skeletonFound = false;
 	for (int i = 0; i < colliderList.size(); i++)
 	{
 		for (int j = 0; j < colliderList[i].collisionSpheres.size(); j++)
 		{
+			auto skeletonObj = colliderList[i].CollisionObject;
+			skeletonFound = false;
+			while (skeletonObj->m_parent)
+			{
+				if (skeletonObj->m_parent->m_name == BSFixedString(skeletonNif_boneName)) {
+					skeletonObj = skeletonObj->m_parent;
+					skeletonFound = true;
+					break;
+				}
+				skeletonObj = skeletonObj->m_parent;
+			}
+			if (skeletonFound == false) {
+				continue;
+			}
+
 			colliderList[i].collisionSpheres[j].worldPos = colliderList[i].CollisionObject->m_worldTransform.pos
-														+ colliderList[i].CollisionObject->m_worldTransform.rot
-														*colliderList[i].collisionSpheres[j].offset;
+														+ skeletonObj->m_worldTransform.rot.Transpose()
+														* colliderList[i].collisionSpheres[j].offset;
 		}
 	}
 }

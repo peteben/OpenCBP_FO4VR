@@ -18,7 +18,7 @@ Collision::Collision(NiAVObject* node, std::vector<Sphere> spheres)
 	}
 }
 
-bool Collision::IsItColliding(NiPoint3 &collisiondif, std::vector<Sphere> thingCollisionSpheres, std::vector<Sphere> collisionSpheres, float maxOffset, bool maybe)
+bool Collision::IsItColliding(NiPoint3 &collisiondif, std::vector<Sphere> thingCollisionSpheres, std::vector<Sphere> collisionSpheres, bool maybe)
 {	
 	/*LARGE_INTEGER startingTime, endingTime, elapsedMicroseconds;
 	LARGE_INTEGER frequency;
@@ -74,7 +74,7 @@ NiPoint3 Collision::CheckPelvisCollision(std::vector<Sphere> thingCollisionSpher
 
 	if (CollisionObject != nullptr)
 	{
-		IsItColliding(collisionDiff, thingCollisionSpheres, collisionSpheres, 99, false);
+		IsItColliding(collisionDiff, thingCollisionSpheres, collisionSpheres, false);
 	}
 
 	/*QueryPerformanceCounter(&endingTime);
@@ -97,7 +97,7 @@ NiPoint3 Collision::CheckCollision(bool &isItColliding, std::vector<Sphere> thin
 	bool isColliding = false;
 	if (CollisionObject != nullptr)
 	{
-		isColliding = IsItColliding(collisionDiff, thingCollisionSpheres, collisionSpheres, maxOffset, maybe);
+		isColliding = IsItColliding(collisionDiff, thingCollisionSpheres, collisionSpheres, maybe);
 		if (isColliding)
 		{
 			isItColliding = true;
@@ -105,12 +105,12 @@ NiPoint3 Collision::CheckCollision(bool &isItColliding, std::vector<Sphere> thin
 				return emptyPoint;
 		}
 		
-		if (isItColliding)
-		{
-			collisionDiff.x = clamp(collisionDiff.x, -maxOffset, maxOffset);
-			collisionDiff.y = clamp(collisionDiff.y, -maxOffset, maxOffset);
-			collisionDiff.z = clamp(collisionDiff.z, -maxOffset, maxOffset);
-		}
+		//if (isItColliding)
+		//{
+		//	collisionDiff.x = clamp(collisionDiff.x, -maxOffset, maxOffset);
+		//	collisionDiff.y = clamp(collisionDiff.y, -maxOffset, maxOffset);
+		//	collisionDiff.z = clamp(collisionDiff.z, -maxOffset, maxOffset);
+		//}
 	}
 
 	/*QueryPerformanceCounter(&endingTime);

@@ -150,6 +150,8 @@ void UpdateActors() {
     auto cell = player->parentCell;
     if (!cell) goto FAILED;
 
+	callCount = 0;
+
     float xLow = 9999999.0; 
     float xHigh = -9999999.0;
     float yLow = 9999999.0;
