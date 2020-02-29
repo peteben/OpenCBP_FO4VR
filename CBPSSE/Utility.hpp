@@ -129,6 +129,7 @@ static inline float clamp(float val, float min, float max) {
 	return val;
 }
 
+// returns false if different
 static inline bool CompareNiPoints(NiPoint3 collisionVector, NiPoint3 emptyPoint)
 {
 	return collisionVector.x == emptyPoint.x && collisionVector.y == emptyPoint.y && collisionVector.z == emptyPoint.z;

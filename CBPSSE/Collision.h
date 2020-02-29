@@ -28,19 +28,18 @@ public:
 	bool Collision::IsItColliding(NiPoint3 &collisiondif, std::vector<Sphere> thingCollisionSpheres, std::vector<Sphere> collisionSpheres, bool maybe);
 	
 	NiPoint3 CheckCollision(bool &isItColliding, std::vector<Sphere> thingCollisionSpheres, float timeTick, long deltaT, float maxOffset, bool maybe);
-
 	NiPoint3 CheckPelvisCollision(std::vector<Sphere> thingCollisionSpheres);
+
 	std::vector<Sphere> collisionSpheres;
-	
 	NiAVObject* CollisionObject;
 	std::string colliderNodeName;
 
 };
 
-//static inline NiPoint3 GetPointFromPercentage(NiPoint3 lowWeight, NiPoint3 highWeight)
-//{
-//	return lowWeight;
-//}
+static inline NiPoint3 GetPointFromPercentage(NiPoint3 lowWeight, NiPoint3 highWeight, float weight)
+{
+	return ((highWeight - lowWeight) * (weight / 100)) + lowWeight;
+}
 
 static inline float distance(NiPoint3 po1, NiPoint3 po2)
 {

@@ -43,7 +43,7 @@ std::vector<ConfigLine> ColliderNodesList; //Nodes that can collide nodes
 
 int collisionSkipFrames = 0; //0
 int gridsize = 25;
-int adjacencyValue = 5;
+int adjacencyValue = 0;
 int tuningModeCollision = 0;
 float actorDistance = 4194304.0f;
 int logging = 0;

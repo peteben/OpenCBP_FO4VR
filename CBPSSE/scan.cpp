@@ -247,7 +247,7 @@ void UpdateActors() {
 
         partitions.clear();
 
-        logger.Info("Starting collider hashing\n");
+        //logger.Info("Starting collider hashing\n");
 
         std::vector<long> ids;
         std::vector<long> hashIdList;

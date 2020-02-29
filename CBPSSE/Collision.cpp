@@ -6,6 +6,7 @@ Collision::Collision(NiAVObject* node, std::vector<Sphere> spheres)
 	CollisionObject = node;
 
 	collisionSpheres = spheres;
+
 	for (int j = 0; j < collisionSpheres.size(); j++)
 	{
 		collisionSpheres[j].offset = spheres[j].offset;
@@ -18,7 +19,7 @@ Collision::Collision(NiAVObject* node, std::vector<Sphere> spheres)
 	}
 }
 
-bool Collision::IsItColliding(NiPoint3 &collisiondif, std::vector<Sphere> thingCollisionSpheres, std::vector<Sphere> collisionSpheres, bool maybe)
+bool Collision::IsItColliding(NiPoint3 &collisionDif, std::vector<Sphere> thingCollisionSpheres, std::vector<Sphere> collisionSpheres, bool maybe)
 {	
 	/*LARGE_INTEGER startingTime, endingTime, elapsedMicroseconds;
 	LARGE_INTEGER frequency;
@@ -48,7 +49,7 @@ bool Collision::IsItColliding(NiPoint3 &collisiondif, std::vector<Sphere> thingC
 				float currentDistance = std::sqrt(currentDistancePwr2);
 				double difPercentage = ((limitDistance - currentDistance) / currentDistance) * 100;
 
-				collisiondif = collisiondif - thingSpherePosition;
+				collisionDif = collisionDif + GetPointFromPercentage(colSpherePosition, thingSpherePosition, (difPercentage/*0.9*/)+100) - thingSpherePosition;
 
 			}			
 		}
@@ -64,12 +65,6 @@ bool Collision::IsItColliding(NiPoint3 &collisiondif, std::vector<Sphere> thingC
 
 NiPoint3 Collision::CheckPelvisCollision(std::vector<Sphere> thingCollisionSpheres)
 {
-	/*LARGE_INTEGER startingTime, endingTime, elapsedMicroseconds;
-	LARGE_INTEGER frequency;
-
-	QueryPerformanceFrequency(&frequency);
-	QueryPerformanceCounter(&startingTime);
-	LOG("Collision.CheckPelvisCollision() Start");*/
 	NiPoint3 collisionDiff = emptyPoint;
 
 	if (CollisionObject != nullptr)
@@ -77,22 +72,11 @@ NiPoint3 Collision::CheckPelvisCollision(std::vector<Sphere> thingCollisionSpher
 		IsItColliding(collisionDiff, thingCollisionSpheres, collisionSpheres, false);
 	}
 
-	/*QueryPerformanceCounter(&endingTime);
-	elapsedMicroseconds.QuadPart = endingTime.QuadPart - startingTime.QuadPart;
-	elapsedMicroseconds.QuadPart *= 1000000000LL;
-	elapsedMicroseconds.QuadPart /= frequency.QuadPart;
-	LOG("Collision.CheckPelvisCollision() Update Time = %lld ns\n", elapsedMicroseconds.QuadPart);*/
 	return collisionDiff;
 }
 
 NiPoint3 Collision::CheckCollision(bool &isItColliding, std::vector<Sphere> thingCollisionSpheres, float timeTick, long deltaT, float maxOffset, bool maybe)
 {
-	/*LARGE_INTEGER startingTime, endingTime, elapsedMicroseconds;
-	LARGE_INTEGER frequency;
-
-	QueryPerformanceFrequency(&frequency);
-	QueryPerformanceCounter(&startingTime);
-	LOG("Collision.CheckCollision() Start");*/
 	NiPoint3 collisionDiff = emptyPoint;
 	bool isColliding = false;
 	if (CollisionObject != nullptr)
@@ -113,11 +97,6 @@ NiPoint3 Collision::CheckCollision(bool &isItColliding, std::vector<Sphere> thin
 		//}
 	}
 
-	/*QueryPerformanceCounter(&endingTime);
-	elapsedMicroseconds.QuadPart = endingTime.QuadPart - startingTime.QuadPart;
-	elapsedMicroseconds.QuadPart *= 1000000000LL;
-	elapsedMicroseconds.QuadPart /= frequency.QuadPart;
-	LOG("Collision.CheckCollision() Update Time = %lld ns\n", elapsedMicroseconds.QuadPart);*/
 	return collisionDiff;
 }
 

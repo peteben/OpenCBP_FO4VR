@@ -8,7 +8,7 @@
 constexpr auto DEG_TO_RAD = 3.14159265 / 180;
 
 // TODO Make these logger macros
-//#define DEBUG 0
+//#define DEBUG 1
 //#define TRANSFORM_DEBUG 0
 
 std::unordered_map<const char*, NiPoint3> origLocalPos;
@@ -212,20 +212,20 @@ NiAVObject* Thing::IsActorValid(Actor* actor) {
 void Thing::Update(Actor *actor) {
 
 	bool collisionsOn = true;
-	if (skipFramesCount > 0)
-	{
-		skipFramesCount--;
-		collisionsOn = false;
-		if (collisionOnLastFrame)
-		{
-			return;
-		}
-	}
-	else
-	{
-		skipFramesCount = collisionSkipFrames;	
-		collisionOnLastFrame = false;
-	}
+	//if (skipFramesCount > 0)
+	//{
+	//	skipFramesCount--;
+	//	collisionsOn = false;
+	//	if (collisionOnLastFrame)
+	//	{
+	//		return;
+	//	}
+	//}
+	//else
+	//{
+	//	skipFramesCount = collisionSkipFrames;	
+	//	collisionOnLastFrame = false;
+	//}
 
     /*LARGE_INTEGER startingTime, endingTime, elapsedMicroseconds;
     LARGE_INTEGER frequency;
@@ -266,21 +266,21 @@ void Thing::Update(Actor *actor) {
     {
         logger.info(sceneObj->m_name);
         logger.info("\n---\n");
-        logger.error("Actual m_localTransform.pos: ");
-        showPos(sceneObj->m_localTransform.pos);
-        logger.error("Actual m_worldTransform.pos: ");
-        showPos(sceneObj->m_worldTransform.pos);
+        logger.Error("Actual m_localTransform.pos: ");
+        ShowPos(sceneObj->m_localTransform.pos);
+        logger.Error("Actual m_worldTransform.pos: ");
+        ShowPos(sceneObj->m_worldTransform.pos);
         logger.info("---\n");
-        //logger.error("Actual m_localTransform.rot Matrix:\n");
-        showRot(sceneObj->m_localTransform.rot);
-        //logger.error("Actual m_worldTransform.rot Matrix:\n");
-        showRot(sceneObj->m_worldTransform.rot);
+        //logger.Error("Actual m_localTransform.rot Matrix:\n");
+        ShowRot(sceneObj->m_localTransform.rot);
+        //logger.Error("Actual m_worldTransform.rot Matrix:\n");
+        ShowRot(sceneObj->m_worldTransform.rot);
         logger.info("---\n");
         //if (sceneObj->m_parent) {
-        //	logger.error("Calculated m_worldTransform.pos: ");
-        //	showPos((sceneObj->m_parent->m_worldTransform.rot.Transpose() * sceneObj->m_localTransform.pos) + sceneObj->m_parent->m_worldTransform.pos);
-        //	logger.error("Calculated m_worldTransform.rot Matrix:\n");
-        //	showRot(sceneObj->m_localTransform.rot * sceneObj->m_parent->m_worldTransform.rot);
+        //	logger.Error("Calculated m_worldTransform.pos: ");
+        //	ShowPos((sceneObj->m_parent->m_worldTransform.rot.Transpose() * sceneObj->m_localTransform.pos) + sceneObj->m_parent->m_worldTransform.pos);
+        //	logger.Error("Calculated m_worldTransform.rot Matrix:\n");
+        //	ShowRot(sceneObj->m_localTransform.rot * sceneObj->m_parent->m_worldTransform.rot);
         //}
         sceneObj = sceneObj->m_parent;
     }
@@ -341,31 +341,34 @@ void Thing::Update(Actor *actor) {
                     //if (partitions[id].partitionCollisions[i].colliderActor == actor && partitions[id].partitionCollisions[i].colliderNodeName.find("Penis_") != std::string::npos)
                     //	continue;
 
-                    //if (partitions[id].partitionCollisions[i].colliderActor == actor && std::strcmp(partitions[id].partitionCollisions[i].colliderNodeName.c_str(), boneName.c_str()) == 0)
-                    //    continue;
+                    // skip collision with itself?
+                    if (partitions[id].partitionCollisions[i].colliderActor == actor && std::strcmp(partitions[id].partitionCollisions[i].colliderNodeName.c_str(), boneName.c_str()) == 0)
+                        continue;
 
                     callCount++;
 
+                    // check if collision vector has changed
                     if (!CompareNiPoints(lastcollisionVector, collisionVector))
                     {
-                        for (int l = 0; l < thingCollisionSpheres.size(); l++)
+                        // Build thing's collision spheres for current frame
+                        for (auto thingCollisSpheres : thingCollisionSpheres)
                         {
-                            thingCollisionSpheres[l].worldPos = oldWorldPos + (objRotation * thingCollisionSpheres[l].offset) + collisionVector;
+                            thingCollisSpheres.worldPos = oldWorldPos + (objRotation * thingCollisSpheres.offset) + collisionVector;
                         }
                     }
                     lastcollisionVector = collisionVector;
 
                     bool colliding = false;
-                    collisionDiff = partitions[id].partitionCollisions[i].CheckCollision(colliding, thingCollisionSpheres, timeTick, originalDeltaT, maxOffsetX, false); // TODO fix this
+                    collisionDiff = partitions[id].partitionCollisions[i].CheckCollision(colliding, thingCollisionSpheres, timeTick, originalDeltaT, maxOffsetX, false);
                     if (colliding) {
-                        logger.Info("Collision detected!\n");
+                        logger.Info("Collision 1 detected!\n");
                         IsThereCollision = true;
                     }   
 
 					collisionVector = collisionVector + collisionDiff*movementMultiplier;
-					collisionVector.x = clamp(collisionVector.x, -maxOffsetX, maxOffsetX);
-					collisionVector.y = clamp(collisionVector.y, -maxOffsetY, maxOffsetY);
-					collisionVector.z = clamp(collisionVector.z, -maxOffsetZ, maxOffsetZ);
+					//collisionVector.x = clamp(collisionVector.x, -maxOffsetX, maxOffsetX);
+					//collisionVector.y = clamp(collisionVector.y, -maxOffsetY, maxOffsetY);
+					//collisionVector.z = clamp(collisionVector.z, -maxOffsetZ, maxOffsetZ);
 				}
 			}
 		}
@@ -387,32 +390,32 @@ void Thing::Update(Actor *actor) {
 	NiPoint3 newPos = oldWorldPos;
 	NiPoint3 posDelta = emptyPoint;
 
-#if DEBUG
-    logger.error("bone %s for actor %08x with parent %s\n", boneName.c_str(), actor->formID, skeletonObj->m_name.c_str());
-    showRot(skeletonObj->m_worldTransform.rot);
-    //showPos(obj->m_parent->m_worldTransform.rot.Transpose() * obj->m_localTransform.pos);
-#endif
+//#if DEBUG
+//    logger.Error("bone %s for actor %08x with parent %s\n", boneName.c_str(), actor->formID, skeletonObj->m_name.c_str());
+//    ShowRot(skeletonObj->m_worldTransform.rot);
+//    //ShowPos(obj->m_parent->m_worldTransform.rot.Transpose() * obj->m_localTransform.pos);
+//#endif
     NiMatrix43 targetRot = skeletonObj->m_localTransform.rot.Transpose();
     NiPoint3 origWorldPos = (obj->m_parent->m_worldTransform.rot.Transpose() * origLocalPos.at(boneName.c_str())) +  obj->m_parent->m_worldTransform.pos;
     // Offset to move Center of Mass make rotational motion more significant
     NiPoint3 target = (targetRot * NiPoint3(varCogOffsetX, varCogOffsetY, varCogOffsetZ)) + origWorldPos;
 
-#if DEBUG
-    logger.error("World Position: ");
-    showPos(obj->m_worldTransform.pos);
-    //logger.error("Parent World Position difference: ");
-    //showPos(obj->m_worldTransform.pos - obj->m_parent->m_worldTransform.pos);
-    logger.error("Target Rotation * cogOffsetY %8.4f: ", cogOffsetY);
-    showPos(targetRot * NiPoint3(cogOffsetX, cogOffsetY, cogOffsetZ));
-    //logger.error("Target Rotation:\n");
-    //showRot(targetRot);
-    logger.error("cogOffset x Transformation:");
-    showPos(targetRot * NiPoint3(cogOffsetX, 0, 0));
-    logger.error("cogOffset y Transformation:");
-    showPos(targetRot * NiPoint3(0, cogOffsetY, 0));
-    logger.error("cogOffset z Transformation:");
-    showPos(targetRot * NiPoint3(0, 0, cogOffsetZ));
-#endif
+//#if DEBUG
+//    logger.Error("World Position: ");
+//    ShowPos(obj->m_worldTransform.pos);
+//    //logger.Error("Parent World Position difference: ");
+//    //ShowPos(obj->m_worldTransform.pos - obj->m_parent->m_worldTransform.pos);
+//    logger.Error("Target Rotation * cogOffsetY %8.4f: ", cogOffsetY);
+//    ShowPos(targetRot * NiPoint3(cogOffsetX, cogOffsetY, cogOffsetZ));
+//    //logger.Error("Target Rotation:\n");
+//    //ShowRot(targetRot);
+//    logger.Error("cogOffset x Transformation:");
+//    ShowPos(targetRot * NiPoint3(cogOffsetX, 0, 0));
+//    logger.Error("cogOffset y Transformation:");
+//    ShowPos(targetRot * NiPoint3(0, cogOffsetY, 0));
+//    logger.Error("cogOffset z Transformation:");
+//    ShowPos(targetRot * NiPoint3(0, 0, cogOffsetZ));
+//#endif
 
     if (!IsThereCollision)
     {
@@ -422,10 +425,10 @@ void Thing::Update(Actor *actor) {
         // Move up in for gravity correction
         diff += targetRot * NiPoint3(0, 0, varGravityCorrection);
 
-#if DEBUG
-        logger.error("Diff after gravity correction %f: ", gravityCorrection);
-        showPos(diff);
-#endif
+//#if DEBUG
+//        logger.Error("Diff after gravity correction %f: ", varGravityCorrection);
+//        ShowPos(diff);
+//#endif
 
         if (fabs(diff.x) > 100 || fabs(diff.y) > 100 || fabs(diff.z) > 100) {
             logger.Error("transform reset\n");
@@ -438,18 +441,17 @@ void Thing::Update(Actor *actor) {
 
         float timeMultiplier = timeTick / (float)deltaT;
         diff *= timeMultiplier;
-        NiPoint3 posDelta = NiPoint3(0, 0, 0);
 
         // Compute the "Spring" Force
         NiPoint3 diff2(diff.x * diff.x * sgn(diff.x), diff.y * diff.y * sgn(diff.y), diff.z * diff.z * sgn(diff.z));
-        NiPoint3 force = (diff * stiffness) + (diff2 * stiffness2) - (targetRot * NiPoint3(0, 0, gravityBias));
+        NiPoint3 force = (diff * stiffness) + (diff2 * stiffness2) - (targetRot * NiPoint3(0, 0, varGravityBias));
 
-#if DEBUG
-        logger.error("Diff2: ");
-        showPos(diff2);
-        logger.error("Force with stiffness %f, stiffness2 %f, gravity bias %f: ", stiffness, stiffness2, gravityBias);
-        showPos(force);
-#endif
+//#if DEBUG
+//        logger.Error("Diff2: ");
+//        ShowPos(diff2);
+//        logger.Error("Force with stiffness %f, stiffness2 %f, gravity bias %f: ", stiffness, stiffness2, varGravityBias);
+//        ShowPos(force);
+//#endif
 
         do {
             // Assume mass is 1, so Accelleration is Force, can vary mass by changinf force
@@ -496,17 +498,18 @@ void Thing::Update(Actor *actor) {
                         //if (partitions[id].partitionCollisions[i].colliderActor == actor && partitions[id].partitionCollisions[i].colliderNodeName.find("Genital") != std::string::npos)
                         //    continue;
 
-                        //if (partitions[id].partitionCollisions[i].colliderActor == actor && std::strcmp(partitions[id].partitionCollisions[i].colliderNodeName.c_str(), boneName.c_str()) == 0)
-                        //    continue;
+                        if (partitions[id].partitionCollisions[i].colliderActor == actor && std::strcmp(partitions[id].partitionCollisions[i].colliderNodeName.c_str(), boneName.c_str()) == 0)
+                            continue;
 
                         callCount++;
                         //partitions[id].partitionCollisions[i].CollidedWeight = actorWeight;
 
                         if (!CompareNiPoints(lastcollisionVector, collisionVector))
                         {
-                            for (int l = 0; l < thingCollisionSpheres.size(); l++)
+                            // Build thing's collision spheres for current frame after move changes
+                            for (auto thingCollisSpheres : thingCollisionSpheres)
                             {
-                                thingCollisionSpheres[l].worldPos = (objRotation * thingCollisionSpheres[l].offset) + maybePos + collisionVector;
+                                thingCollisSpheres.worldPos = oldWorldPos + (objRotation * thingCollisSpheres.offset) + maybePos + collisionVector;
                             }
                         }
                         lastcollisionVector = collisionVector;
@@ -515,11 +518,10 @@ void Thing::Update(Actor *actor) {
                         collisionDiff = partitions[id].partitionCollisions[i].CheckCollision(colliding, thingCollisionSpheres, timeTick, originalDeltaT, maxOffsetX, false);
                         if (colliding)
                         {
-                            logger.Info("2nd Collision detected!\n");
-                             
-                            velocity = emptyPoint;
+                            logger.Info("Collision 2 detected!\n");
+                            velocity += collisionDiff * movementMultiplier * movementMultiplier;
                             maybeNot = true;
-                            collisionVector = collisionVector + collisionDiff;
+                            collisionVector = collisionVector + collisionDiff * movementMultiplier;
                             //collisionVector.x = clamp(collisionVector.x, -maxOffsetX, maxOffsetX);
                             //collisionVector.y = clamp(collisionVector.y, -maxOffsetY, maxOffsetY);
                             //collisionVector.z = clamp(collisionVector.z, -maxOffsetZ, maxOffsetZ);
@@ -528,8 +530,10 @@ void Thing::Update(Actor *actor) {
                 }
             }
 
-            if (!maybeNot)
-                newPos = newPos + posDelta;
+            if (!maybeNot) {
+                logger.Info("Collision 2 didnt happen!\n");
+                newPos = maybePos;
+            }
             else
             {
                 varGravityCorrection = 0;
@@ -539,37 +543,41 @@ void Thing::Update(Actor *actor) {
 
             //LOG("After Maybe Collision Stuff End");
         }
-        else
+        else {
+            logger.Info("Collision 2 fall through!\n");
             newPos = newPos + posDelta;
+        }
     }
 	else
 	{
+        logger.Info("Collision 2 skip from Collision 1!\n");
 		newPos = newPos + collisionVector;
 		collisionOnLastFrame = true;
 	}	
         //oldWorldPos = newPos - target;
 
 #if DEBUG
-        //logger.error("posDelta: ");
-        //showPos(posDelta);
-        logger.error("newPos: ");
-        showPos(newPos);
+        logger.Error("posDelta: ");
+        ShowPos(posDelta);
+        logger.Error("newPos: ");
+        ShowPos(newPos);
 #endif
         // clamp the difference to stop the breast severely lagging at low framerates
         NiPoint3 diff = newPos - target;
+
+        oldWorldPos = diff + target;
 
         diff.x = clamp(diff.x, -maxOffsetX, maxOffsetX);
         diff.y = clamp(diff.y, -maxOffsetY, maxOffsetY);
         diff.z = clamp(diff.z - gravityCorrection, -maxOffsetZ, maxOffsetZ) + gravityCorrection;
 
-        //oldWorldPos = target + diff;
-        oldWorldPos = diff + target;
+        oldWorldPos = target + diff;
 
 #if DEBUG
-        logger.error("diff from newPos: ");
-        showPos(diff);
-        //logger.error("oldWorldPos: ");
-        //showPos(oldWorldPos);
+        logger.Error("diff from newPos: ");
+        ShowPos(diff);
+        //logger.Error("oldWorldPos: ");
+        //ShowPos(oldWorldPos);
 #endif
 
         // move the bones based on the supplied weightings
@@ -581,7 +589,7 @@ void Thing::Update(Actor *actor) {
                                     rotateLinearY * DEG_TO_RAD,
                                     rotateLinearZ * DEG_TO_RAD);
 
-        invRot = rotateLinear * obj->m_parent->m_worldTransform.rot;
+        invRot = /*rotateLinear * */obj->m_parent->m_worldTransform.rot;
 
         auto localDiff = diff;
         localDiff = skeletonObj->m_localTransform.rot * localDiff;
@@ -595,21 +603,20 @@ void Thing::Update(Actor *actor) {
         localDiff = invRot * localDiff;
         oldWorldPos = diff + target;
 #if DEBUG
-        logger.error("invRot x=10 Transformation:");
-        showPos(invRot * NiPoint3(10, 0, 0));
-        logger.error("invRot y=10 Transformation:");
-        showPos(invRot * NiPoint3(0, 10, 0));
-        logger.error("invRot z=10 Transformation:");
-        showPos(invRot * NiPoint3(0, 0, 10));
-        logger.error("oldWorldPos: ");
-        showPos(oldWorldPos);
-        logger.error("localTransform.pos: ");
-        showPos(obj->m_localTransform.pos);
-        logger.error("localDiff: ");
-        showPos(localDiff);
-        logger.error("rotDiff: ");
-        showPos(rotDiff);
-
+        logger.Error("invRot x=10 Transformation:");
+        ShowPos(invRot * NiPoint3(10, 0, 0));
+        logger.Error("invRot y=10 Transformation:");
+        ShowPos(invRot * NiPoint3(0, 10, 0));
+        logger.Error("invRot z=10 Transformation:");
+        ShowPos(invRot * NiPoint3(0, 0, 10));
+        logger.Error("oldWorldPos: ");
+        ShowPos(oldWorldPos);
+        logger.Error("localTransform.pos: ");
+        ShowPos(obj->m_localTransform.pos);
+        logger.Error("localDiff: ");
+        ShowPos(localDiff);
+        logger.Error("rotDiff: ");
+        ShowPos(rotDiff);
 #endif
         // scale positions from config
         NiPoint3 newLocalPos = NiPoint3((localDiff.x) + origLocalPos.at(boneName.c_str()).x,
@@ -617,39 +624,36 @@ void Thing::Update(Actor *actor) {
                                         (localDiff.z) + origLocalPos.at(boneName.c_str()).z
         );
         obj->m_localTransform.pos = newLocalPos;
-        
-        if (absRotX) rotDiff.x = fabs(rotDiff.x);
+        //
+        //if (absRotX) rotDiff.x = fabs(rotDiff.x);
 
-        rotDiff.x *= rotationalX;
-        rotDiff.y *= rotationalY;
-        rotDiff.z *= rotationalZ;
+        //rotDiff.x *= rotationalX;
+        //rotDiff.y *= rotationalY;
+        //rotDiff.z *= rotationalZ;
 
 
-#if DEBUG
-        logger.error("localTransform.pos after: ");
-        showPos(obj->m_localTransform.pos);
-        logger.error("origLocalPos:");
-        showPos(origLocalPos.at(boneName.c_str()));
-        logger.error("origLocalRot:");
-        showRot(origLocalRot.at(boneName.c_str()));
-
-#endif
+//#if DEBUG
+//        logger.Error("localTransform.pos after: ");
+//        ShowPos(obj->m_localTransform.pos);
+//        logger.Error("origLocalPos:");
+//        ShowPos(origLocalPos.at(boneName.c_str()));
+//        logger.Error("origLocalRot:");
+//        ShowRot(origLocalRot.at(boneName.c_str()));
+//
+//#endif
         // Do rotation.
-        NiMatrix43 rotateRotation;
-        rotateRotation.SetEulerAngles(rotateRotationX * DEG_TO_RAD,
-                                      rotateRotationY * DEG_TO_RAD,
-                                      rotateRotationZ * DEG_TO_RAD);
+        //NiMatrix43 rotateRotation;
+        //rotateRotation.SetEulerAngles(rotateRotationX * DEG_TO_RAD,
+        //                              rotateRotationY * DEG_TO_RAD,
+        //                              rotateRotationZ * DEG_TO_RAD);
 
-        NiMatrix43 standardRot;
+        //NiMatrix43 standardRot;
 
-        rotDiff = rotateRotation * rotDiff;
-        standardRot.SetEulerAngles(rotDiff.x, rotDiff.y, rotDiff.z);
-        obj->m_localTransform.rot = standardRot * origLocalRot.at(boneName.c_str());
-#if DEBUG
-    logger.error("end update()\n");
-#endif
+        //rotDiff = rotateRotation * rotDiff;
+        //standardRot.SetEulerAngles(rotDiff.x, rotDiff.y, rotDiff.z);
+        //obj->m_localTransform.rot = standardRot * origLocalRot.at(boneName.c_str());
 
-    //logger.error("end update()\n");
+    //logger.Error("end update()\n");
     /*QueryPerformanceCounter(&endingTime);
     elapsedMicroseconds.QuadPart = endingTime.QuadPart - startingTime.QuadPart;
     elapsedMicroseconds.QuadPart *= 1000000000LL;

@@ -29,7 +29,7 @@ void CreateOtherColliders()
 	//int otherActorCount = 0;
 
 	NiNode* mostInterestingRoot;
-	logger.Info("ActorCount: %d\n", actorEntries.size());
+	//logger.Info("ActorCount: %d\n", actorEntries.size());
 	for (int i = 0; i < actorEntries.size(); i++)
 	{
 		// loadedState = actor->unkF0;
@@ -101,7 +101,6 @@ void CreateOtherColliders()
 
 void UpdateColliderPositions(std::vector<Collision> &colliderList)
 {
-	const char* skeletonNif_boneName = "skeleton.nif";
 	bool skeletonFound = false;
 	for (int i = 0; i < colliderList.size(); i++)
 	{
@@ -111,9 +110,10 @@ void UpdateColliderPositions(std::vector<Collision> &colliderList)
 			skeletonFound = false;
 			while (skeletonObj->m_parent)
 			{
-				if (skeletonObj->m_parent->m_name == BSFixedString(skeletonNif_boneName)) {
+				if (skeletonObj->m_parent->m_name == BSFixedString("skeleton.nif")) {
 					skeletonObj = skeletonObj->m_parent;
 					skeletonFound = true;
+					//logger.Info("Skeleton found!\n");
 					break;
 				}
 				skeletonObj = skeletonObj->m_parent;

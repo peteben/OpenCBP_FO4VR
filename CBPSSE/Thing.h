@@ -74,5 +74,5 @@ public:
 
 	std::vector<Sphere> CreateThingCollisionSpheres(Actor * actor, std::string nodeName, float nodescale);
 
-	double movementMultiplier = 1.0;
+	double movementMultiplier = 0.5;
 };
