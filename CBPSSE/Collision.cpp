@@ -1,5 +1,6 @@
 #include "Collision.h"
 #include "Utility.hpp"
+#include "log.h"
 
 Collision::Collision(NiAVObject* node, std::vector<Sphere> spheres)
 {
@@ -46,6 +47,7 @@ bool Collision::IsItColliding(NiPoint3 &collisionDif, std::vector<Sphere> thingC
 				if (maybe)
 					return true;
 
+				logger.Info("%s is colliding with %s!\n", thingCollisionSpheres[j].NodeName.c_str(), collisionSpheres[i].NodeName.c_str());
 				float currentDistance = std::sqrt(currentDistancePwr2);
 				double difPercentage = ((limitDistance - currentDistance) / currentDistance) * 100;
 

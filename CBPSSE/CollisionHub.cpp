@@ -123,7 +123,7 @@ void UpdateColliderPositions(std::vector<Collision> &colliderList)
 			}
 
 			colliderList[i].collisionSpheres[j].worldPos = colliderList[i].CollisionObject->m_worldTransform.pos
-														+ skeletonObj->m_worldTransform.rot.Transpose()
+														+ skeletonObj->m_localTransform.rot.Transpose()
 														* colliderList[i].collisionSpheres[j].offset;
 		}
 	}
