@@ -16,7 +16,7 @@
 #include "f4se/GameRTTI.h"
 #include "f4se_common/Utilities.h"
 
-#define DEBUG 0
+//#define DEBUG 0
 #pragma warning(disable : 4996)
 
 int configReloadCount = 60;
@@ -47,6 +47,10 @@ int adjacencyValue = 0;
 int tuningModeCollision = 0;
 float actorDistance = 4194304.0f;
 int logging = 0;
+
+float collisionX = 1.0;
+float collisionY = 1.0;
+float collisionZ = 1.0;
 
 bool LoadConfig() {
     logger.Info("loadConfig\n");
@@ -234,7 +238,7 @@ void LoadCollisionConfig()
     AffectedNodesList.clear();
     ColliderNodesList.clear();
 
-    std::string filepath = "Data\\F4SE\\Plugins\\CBPCollisionConfig.txt";
+    std::string filepath = "Data\\F4SE\\Plugins\\OCBPCollisionConfig.txt";
 
     std::ifstream file(filepath);
 
@@ -262,7 +266,24 @@ void LoadCollisionConfig()
                 }
                 else
                 {
-                    if (currentSetting == "[AffectedNodes]")
+                    if (currentSetting == "[ExtraOptions]")
+                    {
+                        std::string variableName;
+                        float variableValue = GetConfigSettingsFloatValue(line, variableName);
+                        if (variableName == "collisionX")
+                        {
+                            collisionX = variableValue;
+                        }
+                        else if (variableName == "collisionY")
+                        {
+                            collisionY = variableValue;
+                        }
+                        else if (variableName == "collisionZ")
+                        {
+                            collisionZ = variableValue;
+                        }
+                    }
+                    else if (currentSetting == "[AffectedNodes]")
                     {
                         AffectedNodeLines.emplace_back(line);
                         ConfigLine newConfigLine;

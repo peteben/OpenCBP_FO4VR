@@ -71,6 +71,10 @@ extern int adjacencyValue;
 extern int tuningModeCollision;
 extern float actorDistance;
 
+extern float collisionX;
+extern float collisionY;
+extern float collisionZ;
+
 extern std::vector<std::string> AffectedNodeLines;
 extern std::vector<std::string> ColliderNodeLines;
 

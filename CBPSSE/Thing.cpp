@@ -10,6 +10,7 @@ constexpr auto DEG_TO_RAD = 3.14159265 / 180;
 // TODO Make these logger macros
 //#define DEBUG 1
 //#define TRANSFORM_DEBUG 1
+#define COLLISION_DEBUG 1
 
 std::unordered_map<const char*, NiPoint3> origLocalPos;
 std::unordered_map<const char*, NiMatrix43> origLocalRot;
@@ -212,20 +213,6 @@ NiAVObject* Thing::IsActorValid(Actor* actor) {
 void Thing::Update(Actor *actor) {
 
 	bool collisionsOn = true;
-	//if (skipFramesCount > 0)
-	//{
-	//	skipFramesCount--;
-	//	collisionsOn = false;
-	//	if (collisionOnLastFrame)
-	//	{
-	//		return;
-	//	}
-	//}
-	//else
-	//{
-	//	skipFramesCount = collisionSkipFrames;	
-	//	collisionOnLastFrame = false;
-	//}
 
     /*LARGE_INTEGER startingTime, endingTime, elapsedMicroseconds;
     LARGE_INTEGER frequency;
@@ -257,7 +244,7 @@ void Thing::Update(Actor *actor) {
 	float varCogOffsetX = cogOffsetX;
     float varCogOffsetY = cogOffsetY;
     float varCogOffsetZ = cogOffsetZ;
-	float varGravityCorrection = -1*gravityCorrection;
+	float varGravityCorrection = gravityCorrection;
 	float varGravityBias = gravityBias;
 
 #if TRANSFORM_DEBUG
@@ -318,7 +305,6 @@ void Thing::Update(Actor *actor) {
 		for (int i = 0; i < thingCollisionSpheres.size(); i++)
 		{
 			thingCollisionSpheres[i].worldPos = obj->m_worldTransform.pos + (objRotation*thingCollisionSpheres[i].offset);
-			//printNiPointMessage("thingCollisionSpheres[i].worldPos", thingCollisionSpheres[i].worldPos);
 			hashIdList = GetHashIdsFromPos(thingCollisionSpheres[i].worldPos, thingCollisionSpheres[i].radius, hashSize);
 			for(int m=0; m<hashIdList.size(); m++)
 			{
@@ -341,13 +327,13 @@ void Thing::Update(Actor *actor) {
                     //if (partitions[id].partitionCollisions[i].colliderActor == actor && partitions[id].partitionCollisions[i].colliderNodeName.find("Penis_") != std::string::npos)
                     //	continue;
 
-                    // skip collision with itself?
+                    // Skip collision with itself?
                     if (partitions[id].partitionCollisions[i].colliderActor == actor && std::strcmp(partitions[id].partitionCollisions[i].colliderNodeName.c_str(), boneName.c_str()) == 0)
                         continue;
 
                     callCount++;
 
-                    // check if collision vector has changed
+                    // Check if collision vector has changed
                     if (!CompareNiPoints(lastcollisionVector, collisionVector))
                     {
                         // Build thing's collision spheres for current frame
@@ -365,10 +351,12 @@ void Thing::Update(Actor *actor) {
                         IsThereCollision = true;
                     }   
 
-					collisionVector = collisionVector + collisionDiff*movementMultiplier;
-					//collisionVector.x = clamp(collisionVector.x, -maxOffsetX, maxOffsetX);
-					//collisionVector.y = clamp(collisionVector.y, -maxOffsetY, maxOffsetY);
-					//collisionVector.z = clamp(collisionVector.z, -maxOffsetZ, maxOffsetZ);
+                    collisionDiff.x *= collisionX;
+                    collisionDiff.y *= collisionY;
+                    collisionDiff.z *= collisionZ;
+
+                    velocity = velocity + collisionDiff;
+					collisionVector = collisionVector + collisionDiff;
 				}
 			}
 		}
@@ -382,7 +370,7 @@ void Thing::Update(Actor *actor) {
             varCogOffsetY = 0;
             varCogOffsetZ = 0;
             varGravityCorrection = 0;
-			varGravityBias = 0;
+			//varGravityBias = 0;
 		}
 		//LOG("After Collision Stuff");
 	}
@@ -450,12 +438,12 @@ void Thing::Update(Actor *actor) {
         NiPoint3 diff2(diff.x * diff.x * sgn(diff.x), diff.y * diff.y * sgn(diff.y), diff.z * diff.z * sgn(diff.z));
         NiPoint3 force = (diff * stiffness) + (diff2 * stiffness2) - (targetRot * NiPoint3(0, 0, varGravityBias));
 
-//#if DEBUG
-//        logger.Error("Diff2: ");
-//        ShowPos(diff2);
-//        logger.Error("Force with stiffness %f, stiffness2 %f, gravity bias %f: ", stiffness, stiffness2, varGravityBias);
-//        ShowPos(force);
-//#endif
+#if DEBUG
+        logger.Error("Diff2: ");
+        ShowPos(diff2);
+        logger.Error("Force with stiffness %f, stiffness2 %f, gravity bias %f: ", stiffness, stiffness2, varGravityBias);
+        ShowPos(force);
+#endif
 
         do {
             // Assume mass is 1, so Accelleration is Force, can vary mass by changinf force
@@ -467,10 +455,15 @@ void Thing::Update(Actor *actor) {
             deltaT -= timeTick;
         } while (deltaT >= timeTick);
 
+        NiMatrix43 rotateLinear;
+        rotateLinear.SetEulerAngles(rotateLinearX* DEG_TO_RAD,
+                                    rotateLinearY* DEG_TO_RAD,
+                                    rotateLinearZ* DEG_TO_RAD);
+
         if (collisionsOn && hashSize > 0)
         {
             //LOG("Before Maybe Collision Stuff Start");
-            NiPoint3 maybePos = newPos + posDelta;
+            NiPoint3 maybePos = newPos + (rotateLinear * posDelta);
 
             bool maybeNot = false;
 
@@ -506,7 +499,6 @@ void Thing::Update(Actor *actor) {
                             continue;
 
                         callCount++;
-                        //partitions[id].partitionCollisions[i].CollidedWeight = actorWeight;
 
                         if (!CompareNiPoints(lastcollisionVector, collisionVector))
                         {
@@ -523,10 +515,14 @@ void Thing::Update(Actor *actor) {
                         if (colliding)
                         {
                             logger.Info("Collision 2 detected!\n");
-                            //velocity += collisionDiff * movementMultiplier * movementMultiplier;
-                            velocity = emptyPoint;
+                            collisionDiff.x *= collisionX;
+                            collisionDiff.y *= collisionY;
+                            collisionDiff.z *= collisionZ;
+
+                            velocity += collisionDiff;
+                            //velocity = emptyPoint;
                             maybeNot = true;
-                            collisionVector = collisionVector + collisionDiff * movementMultiplier;
+                            collisionVector = collisionVector + collisionDiff;
                             //collisionVector.x = clamp(collisionVector.x, -maxOffsetX, maxOffsetX);
                             //collisionVector.y = clamp(collisionVector.y, -maxOffsetY, maxOffsetY);
                             //collisionVector.z = clamp(collisionVector.z, -maxOffsetZ, maxOffsetZ);
@@ -550,7 +546,7 @@ void Thing::Update(Actor *actor) {
         }
         else {
             logger.Info("Collision 2 fall through!\n");
-            newPos = newPos + posDelta;
+            newPos = newPos + (rotateLinear * posDelta);
         }
     }
 	else
@@ -589,12 +585,8 @@ void Thing::Update(Actor *actor) {
         // Convert the world translations into local coordinates
 
         NiMatrix43 invRot;
-        NiMatrix43 rotateLinear;
-        rotateLinear.SetEulerAngles(rotateLinearX * DEG_TO_RAD,
-                                    rotateLinearY * DEG_TO_RAD,
-                                    rotateLinearZ * DEG_TO_RAD);
 
-        invRot = /*rotateLinear * */obj->m_parent->m_worldTransform.rot;
+        invRot = obj->m_parent->m_worldTransform.rot;
 
         auto localDiff = diff;
         localDiff = skeletonObj->m_localTransform.rot * localDiff;
