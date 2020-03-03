@@ -478,15 +478,10 @@ void Thing::Update(Actor *actor) {
             deltaT -= timeTick;
         } while (deltaT >= timeTick);
 
-        NiMatrix43 rotateLinear;
-        rotateLinear.SetEulerAngles(rotateLinearX* DEG_TO_RAD,
-                                    rotateLinearY* DEG_TO_RAD,
-                                    rotateLinearZ* DEG_TO_RAD);
-
         if (collisionsOn && hashSize > 0)
         {
             //LOG("Before Maybe Collision Stuff Start");
-            NiPoint3 maybePos = newPos + (rotateLinear * posDelta);
+            NiPoint3 maybePos = newPos + posDelta;
 
             bool maybeNot = false;
 
@@ -537,6 +532,7 @@ void Thing::Update(Actor *actor) {
                         collisionDiff = partitions[id].partitionCollisions[i].CheckCollision(colliding, thingCollisionSpheres, timeTick, originalDeltaT, maxOffsetX, false);
                         if (colliding)
                         {
+                            IsThereCollision = true;
                             logger.Info("Collision 2 detected!\n");
                             collisionDiff.x *= collisionX;
                             collisionDiff.y *= collisionY;
@@ -569,7 +565,7 @@ void Thing::Update(Actor *actor) {
         }
         else {
             logger.Info("Collision 2 fall through!\n");
-            newPos = newPos + (rotateLinear * posDelta);
+            newPos = newPos + posDelta;
         }
     }
 	else
@@ -609,7 +605,16 @@ void Thing::Update(Actor *actor) {
 
         NiMatrix43 invRot;
 
-        invRot = obj->m_parent->m_worldTransform.rot;
+        if (IsThereCollision) {
+            invRot = obj->m_parent->m_worldTransform.rot;
+        }
+        else {
+            NiMatrix43 rotateLinear;
+            rotateLinear.SetEulerAngles(rotateLinearX* DEG_TO_RAD,
+                                        rotateLinearY* DEG_TO_RAD,
+                                        rotateLinearZ* DEG_TO_RAD);
+            invRot = rotateLinear * obj->m_parent->m_worldTransform.rot;
+        }
 
         auto localDiff = diff;
         localDiff = skeletonObj->m_localTransform.rot * localDiff;
