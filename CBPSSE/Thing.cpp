@@ -174,6 +174,10 @@ template <typename T> int sgn(T val) {
 }
 
 NiAVObject* Thing::IsActorValid(Actor* actor) {
+    if (!actorUtils::IsActorValid(actor)) {
+        logger.Error("No valid actor in Thing::Update\n");
+        return NULL;
+    }
     auto loadedState = actor->unkF0;
     if (!loadedState || !loadedState->rootNode) {
         logger.Error("No loaded state for actor %08x\n", actor->formID);
@@ -204,19 +208,19 @@ void Thing::Update(Actor *actor) {
     QueryPerformanceFrequency(&frequency);
     QueryPerformanceCounter(&startingTime);*/
 
+    auto obj = IsActorValid(actor);
+    if (!obj) {
+        return;
+    }
+
     auto newTime = clock();
     auto deltaT = newTime - time;
 
     time = newTime;
     if (deltaT > 64) deltaT = 64;
     if (deltaT < 8) deltaT = 8;
-    
-	NiMatrix43 objRotation;
 
-    auto obj = IsActorValid(actor);
-    if (!obj) {
-        return;
-    }
+	NiMatrix43 objRotation;
 
     objRotation = obj->m_worldTransform.rot;
 
