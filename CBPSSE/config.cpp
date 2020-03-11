@@ -302,6 +302,10 @@ void LoadCollisionConfig()
                         {
                             collisionZ = variableValue;
                         }
+                        else if (variableName == "adjacencyValue")
+                        {
+                            adjacencyValue = variableValue;
+                        }
                     }
                     else if (currentSetting == "[AffectedNodes]")
                     {

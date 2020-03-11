@@ -18,6 +18,9 @@ class Thing {
     clock_t time;
 
 public:
+    Thing(Actor* actor, NiAVObject* obj, BSFixedString& name);
+    ~Thing();
+
     float stiffness = 0.5f;
     float stiffness2 = 0.0f;
     float damping = 0.2f;
@@ -52,9 +55,6 @@ public:
 
     static pos_map origLocalPos;
     static rot_map origLocalRot;
-
-    Thing(Actor* actor, NiAVObject *obj, BSFixedString &name);
-    ~Thing();
 
     NiAVObject* IsActorValid(Actor* actor);
     void Reset(Actor* actor);

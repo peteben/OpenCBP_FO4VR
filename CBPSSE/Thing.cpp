@@ -1,6 +1,7 @@
 #include "f4se\NiNodes.h"
 #include <time.h>
 
+#include "ActorUtils.h"
 #include "log.h"
 #include "Thing.h"
 #include "Utility.hpp"
@@ -381,7 +382,7 @@ void Thing::Update(Actor *actor) {
                     collisionDiff.y *= collisionY;
                     collisionDiff.z *= collisionZ;
 
-                    velocity = velocity + collisionDiff;
+                    //velocity = velocity + collisionDiff;
 					collisionVector = collisionVector + collisionDiff;
 				}
 			}
@@ -542,8 +543,8 @@ void Thing::Update(Actor *actor) {
                             collisionDiff.y *= collisionY;
                             collisionDiff.z *= collisionZ;
 
-                            velocity += collisionDiff;
-                            //velocity = emptyPoint;
+                            //velocity += collisionDiff;
+                            velocity = emptyPoint;
                             maybeNot = true;
                             collisionVector = collisionVector + collisionDiff;
                             //collisionVector.x = clamp(collisionVector.x, -maxOffsetX, maxOffsetX);

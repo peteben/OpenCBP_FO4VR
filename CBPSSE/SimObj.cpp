@@ -96,7 +96,7 @@ bool SimObj::UpdateConfig(Actor* actor, std::vector<std::string>& boneNames, con
             }
             else if (findBone == things.end()) {
                 //logger.info("Doing Bone %s for actor %08x\n", b, actor->formID);
-                things.emplace(b, Thing(bone, cs));
+                things.emplace(b, Thing(actor, bone, cs));
             }
         }
     }
