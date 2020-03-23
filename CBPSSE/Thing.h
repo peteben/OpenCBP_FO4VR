@@ -70,7 +70,7 @@ public:
 	bool collisionOnLastFrame = false;
 
 
-	NiPoint3 lastColliderPosition = emptyPoint;
+	NiPoint3 lastColliderPosition = zeroVector;
 
 	std::vector<Sphere> thingCollisionSpheres;
 

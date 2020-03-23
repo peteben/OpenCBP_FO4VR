@@ -41,17 +41,17 @@ Thing::Thing(Actor* actor, NiAVObject* obj, BSFixedString& name)
     time = clock();
 
 	float nodescale = 1.0f;
-	if (actor)
-	{
-		if (actor->unkF0 && actor->unkF0->rootNode)
-		{
-			NiAVObject* obj = actor->unkF0->rootNode->GetObjectByName(&name);
-			if (obj)
-			{
-				nodescale = obj->m_worldTransform.scale;
-			}
-		}
-	}	
+	//if (actor)
+	//{
+	//	if (actor->unkF0 && actor->unkF0->rootNode)
+	//	{
+	//		NiAVObject* obj = actor->unkF0->rootNode->GetObjectByName(&name);
+	//		if (obj)
+	//		{
+	//			nodescale = obj->m_worldTransform.scale;
+	//		}
+	//	}
+	//}	
 
 	thingCollisionSpheres = CreateThingCollisionSpheres(actor, std::string(name.c_str()), nodescale);
 
@@ -61,11 +61,12 @@ Thing::Thing(Actor* actor, NiAVObject* obj, BSFixedString& name)
 Thing::~Thing() {
 }
 
+// TODO: this copies an entire vector...
 std::vector<Sphere> Thing::CreateThingCollisionSpheres(Actor * actor, std::string nodeName, float nodescale)
 {
 	auto actorRef = DYNAMIC_CAST(actor, Actor, TESObjectREFR);
 
-	std::vector<ConfigLine>* AffectedNodesListPtr;
+	std::vector<ConfigLine>* affectedNodesListPtr;
 
 	const char * actorrefname = "";
 
@@ -78,16 +79,16 @@ std::vector<Sphere> Thing::CreateThingCollisionSpheres(Actor * actor, std::strin
 		actorrefname = CALL_MEMBER_FN(actorRef, GetReferenceName)();
 	}
 
-	AffectedNodesListPtr = &AffectedNodesList;
+	affectedNodesListPtr = &AffectedNodesList;
 
 
 	std::vector<Sphere> spheres;
 
-	for (int i = 0; i < AffectedNodesListPtr->size(); i++)
+	for (int i = 0; i < affectedNodesListPtr->size(); i++)
 	{
-		if (AffectedNodesListPtr->at(i).NodeName == nodeName)
+		if (affectedNodesListPtr->at(i).NodeName == nodeName)
 		{
-			spheres = AffectedNodesListPtr->at(i).CollisionSpheres;
+			spheres = affectedNodesListPtr->at(i).CollisionSpheres;
 
 			for(int j=0; j<spheres.size(); j++)
 			{
@@ -226,9 +227,9 @@ void Thing::Update(Actor *actor) {
     objRotation = obj->m_worldTransform.rot;
 
 	bool IsThereCollision = false;
-	NiPoint3 collisionDiff = emptyPoint;
+	NiPoint3 collisionDiff = zeroVector;
 	long originalDeltaT = deltaT;
-	NiPoint3 collisionVector = emptyPoint;
+	NiPoint3 collisionVector = zeroVector;
 
 	float varCogOffsetX = cogOffsetX;
     float varCogOffsetY = cogOffsetY;
@@ -342,7 +343,7 @@ void Thing::Update(Actor *actor) {
 			}
 		}
 
-		NiPoint3 lastcollisionVector = emptyPoint;
+		NiPoint3 lastcollisionVector = zeroVector;
 
 		for (int j = 0; j < thingIdList.size(); j++)
 		{
@@ -351,9 +352,6 @@ void Thing::Update(Actor *actor) {
 			{
                 for (int i = 0; i < partitions[id].partitionCollisions.size(); i++)
                 {
-                    //if (partitions[id].partitionCollisions[i].colliderActor == actor && partitions[id].partitionCollisions[i].colliderNodeName.find("Penis_") != std::string::npos)
-                    //	continue;
-
                     // Skip collision with itself?
                     if (partitions[id].partitionCollisions[i].colliderActor == actor && std::strcmp(partitions[id].partitionCollisions[i].colliderNodeName.c_str(), boneName.c_str()) == 0)
                         continue;
@@ -378,10 +376,6 @@ void Thing::Update(Actor *actor) {
                         IsThereCollision = true;
                     }   
 
-                    collisionDiff.x *= collisionX;
-                    collisionDiff.y *= collisionY;
-                    collisionDiff.z *= collisionZ;
-
                     //velocity = velocity + collisionDiff;
 					collisionVector = collisionVector + collisionDiff;
 				}
@@ -391,19 +385,20 @@ void Thing::Update(Actor *actor) {
 		{
 			float timeMultiplier = timeTick / (float)deltaT;
 
+            collisionVector.x *= collisionX / linearX;
+            collisionVector.y *= collisionY / linearY;
+            collisionVector.z *= collisionZ / linearZ;
 			collisionVector *= timeMultiplier;
-
-			varCogOffsetX = 0;
-            varCogOffsetY = 0;
-            varCogOffsetZ = 0;
-            varGravityCorrection = 0;
-			//varGravityBias = 0;
-		}
+            collisionVector.x = clamp(collisionVector.x, -maxOffsetX, maxOffsetX);
+            collisionVector.y = clamp(collisionVector.y, -maxOffsetY, maxOffsetY);
+            collisionVector.z = clamp(collisionVector.z, -maxOffsetZ, maxOffsetZ);
+            velocity = collisionVector * timeStep;
+        }
 		//LOG("After Collision Stuff");
 	}
 
 	NiPoint3 newPos = oldWorldPos;
-	NiPoint3 posDelta = emptyPoint;
+	NiPoint3 posDelta = zeroVector;
 
 //#if DEBUG
     logger.Error("bone %s for actor %08x with parent %s\n", boneName.c_str(), actor->formID, skeletonObj->m_name.c_str());
@@ -445,6 +440,7 @@ void Thing::Update(Actor *actor) {
         // Move up in for gravity correction
         diff += targetRot * NiPoint3(0, 0, varGravityCorrection);
 
+        //diff += collisionVector;
 //#if DEBUG
         logger.Error("Diff after gravity correction %f: ", varGravityCorrection);
         ShowPos(diff);
@@ -505,8 +501,8 @@ void Thing::Update(Actor *actor) {
                 }
             }
             //Prevent normal movement to cause collision (This prevents shakes)			
-            collisionVector = emptyPoint;
-            NiPoint3 lastcollisionVector = emptyPoint;
+            collisionVector = zeroVector;
+            NiPoint3 lastcollisionVector = zeroVector;
             for (int j = 0; j < thingIdList.size(); j++)
             {
                 long id = thingIdList[j];
@@ -515,9 +511,6 @@ void Thing::Update(Actor *actor) {
                 {
                     for (int i = 0; i < partitions[id].partitionCollisions.size(); i++)
                     {
-                        //if (partitions[id].partitionCollisions[i].colliderActor == actor && partitions[id].partitionCollisions[i].colliderNodeName.find("Genital") != std::string::npos)
-                        //    continue;
-
                         if (partitions[id].partitionCollisions[i].colliderActor == actor && std::strcmp(partitions[id].partitionCollisions[i].colliderNodeName.c_str(), boneName.c_str()) == 0)
                             continue;
 
@@ -539,17 +532,9 @@ void Thing::Update(Actor *actor) {
                         {
                             IsThereCollision = true;
                             logger.Info("Collision 2 detected!\n");
-                            collisionDiff.x *= collisionX;
-                            collisionDiff.y *= collisionY;
-                            collisionDiff.z *= collisionZ;
 
-                            //velocity += collisionDiff;
-                            velocity = emptyPoint;
                             maybeNot = true;
                             collisionVector = collisionVector + collisionDiff;
-                            //collisionVector.x = clamp(collisionVector.x, -maxOffsetX, maxOffsetX);
-                            //collisionVector.y = clamp(collisionVector.y, -maxOffsetY, maxOffsetY);
-                            //collisionVector.z = clamp(collisionVector.z, -maxOffsetZ, maxOffsetZ);
                         }
                     }
                 }
@@ -561,8 +546,14 @@ void Thing::Update(Actor *actor) {
             }
             else
             {
-                varGravityCorrection = 0;
+                collisionVector.x *= collisionX / linearX;
+                collisionVector.y *= collisionY / linearY;
+                collisionVector.z *= collisionZ / linearZ;
                 collisionVector *= timeMultiplier;
+                collisionVector.x = clamp(collisionVector.x, -maxOffsetX, maxOffsetX);
+                collisionVector.y = clamp(collisionVector.y, -maxOffsetY, maxOffsetY);
+                collisionVector.z = clamp(collisionVector.z, -maxOffsetZ, maxOffsetZ);
+                velocity = collisionVector * timeStep;
                 newPos = maybePos + collisionVector;
             }
 
@@ -588,7 +579,7 @@ void Thing::Update(Actor *actor) {
         ShowPos(newPos);
 #endif
         // clamp the difference to stop the breast severely lagging at low framerates
-        NiPoint3 diff = newPos - target;
+        auto diff = newPos - target;
 
         oldWorldPos = diff + target;
 

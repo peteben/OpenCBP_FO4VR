@@ -11,7 +11,7 @@
 
 #include "config.h"
 
-static NiPoint3 emptyPoint = NiPoint3(0, 0, 0);
+static NiPoint3 zeroVector = NiPoint3(0, 0, 0);
 
 class Collision
 {
@@ -23,7 +23,7 @@ public:
 
 	Actor* colliderActor;
 
-	NiPoint3 lastColliderPosition = emptyPoint;
+	NiPoint3 lastColliderPosition = zeroVector;
 		
 	bool Collision::IsItColliding(NiPoint3 &collisiondif, std::vector<Sphere> thingCollisionSpheres, std::vector<Sphere> collisionSpheres, bool maybe);
 	

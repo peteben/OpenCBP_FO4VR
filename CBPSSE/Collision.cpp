@@ -47,11 +47,11 @@ bool Collision::IsItColliding(NiPoint3 &collisionDif, std::vector<Sphere> thingC
 				if (maybe)
 					return true;
 
-				logger.Info("%s is colliding with %s!\n", thingCollisionSpheres[j].NodeName.c_str(), collisionSpheres[i].NodeName.c_str());
 				float currentDistance = std::sqrt(currentDistancePwr2);
 				double difPercentage = ((limitDistance - currentDistance) / currentDistance) * 100;
+				logger.Info("%s is colliding with %s with percentage %f!\n", thingCollisionSpheres[j].NodeName.c_str(), collisionSpheres[i].NodeName.c_str(), difPercentage);
 
-				collisionDif = collisionDif + GetPointFromPercentage(colSpherePosition, thingSpherePosition, (difPercentage/*0.9*/)+100) - thingSpherePosition;
+				collisionDif += GetPointFromPercentage(colSpherePosition, thingSpherePosition, (difPercentage/*0.9*/)+100) - thingSpherePosition;
 
 			}			
 		}
@@ -67,7 +67,7 @@ bool Collision::IsItColliding(NiPoint3 &collisionDif, std::vector<Sphere> thingC
 
 NiPoint3 Collision::CheckPelvisCollision(std::vector<Sphere> thingCollisionSpheres)
 {
-	NiPoint3 collisionDiff = emptyPoint;
+	NiPoint3 collisionDiff = zeroVector;
 
 	if (CollisionObject != nullptr)
 	{
@@ -79,7 +79,7 @@ NiPoint3 Collision::CheckPelvisCollision(std::vector<Sphere> thingCollisionSpher
 
 NiPoint3 Collision::CheckCollision(bool &isItColliding, std::vector<Sphere> thingCollisionSpheres, float timeTick, long deltaT, float maxOffset, bool maybe)
 {
-	NiPoint3 collisionDiff = emptyPoint;
+	NiPoint3 collisionDiff = zeroVector;
 	bool isColliding = false;
 	if (CollisionObject != nullptr)
 	{
@@ -88,7 +88,7 @@ NiPoint3 Collision::CheckCollision(bool &isItColliding, std::vector<Sphere> thin
 		{
 			isItColliding = true;
 			if (maybe)
-				return emptyPoint;
+				return zeroVector;
 		}
 		
 		//if (isItColliding)
