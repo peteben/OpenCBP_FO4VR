@@ -1,7 +1,7 @@
 #pragma once
-#include <f4se\NiTypes.h>
-#include <f4se\NiObjects.h>
-#include <f4se\GameReferences.h>
+#include <f4se/NiObjects.h>
+#include <f4se/NiTypes.h>
+#include <f4se/GameReferences.h>
 #include <time.h>
 
 #include "CollisionHub.h"
@@ -56,9 +56,9 @@ public:
     static pos_map origLocalPos;
     static rot_map origLocalRot;
 
-    NiAVObject* IsActorValid(Actor* actor);
+    NiAVObject* IsThingActorValid(Actor* actor);
     void Reset(Actor* actor);
-    void Update(Actor* actor);	
+    void UpdateThing(Actor* actor);	
     void UpdateConfig(configEntry_t& centry);
     
     void ShowPos(NiPoint3& p);
