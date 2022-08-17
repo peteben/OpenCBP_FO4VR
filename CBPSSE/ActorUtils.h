@@ -2,12 +2,14 @@
 #include "f4se/GameReferences.h"
 #include "config.h"
 
-namespace actorUtils {
-    struct EquippedArmor {
+namespace actorUtils
+{
+    struct EquippedArmor
+    {
         const TESForm* armor;
         const TESForm* model;
     };
-    
+
     std::string GetActorRaceEID(Actor* actor);
     NiAVObject* GetBaseSkeleton(Actor* actor);
     bool IsActorInPowerArmor(Actor* actor);

@@ -7,10 +7,12 @@
 
 #include "f4se/GameReferences.h"
 
-class Configuration {
+class Configuration
+{
 };
 
-struct whitelistSex {
+struct whitelistSex
+{
     bool male;
     bool female;
 };
@@ -19,7 +21,8 @@ typedef std::unordered_map<std::string, float> configEntry_t;
 typedef std::unordered_map<std::string, configEntry_t> config_t;
 typedef std::unordered_map<std::string, std::unordered_map<std::string, whitelistSex>> whitelist_t;
 
-struct armorOverrideData {
+struct armorOverrideData
+{
     bool isFilterInverted;
     std::unordered_set<UInt32> slots;
     std::unordered_set<UInt32> armors;

@@ -6,36 +6,42 @@
 // TODO make better macro
 //#define LOG_ON
 
-CbpLogger::CbpLogger(const char *fname) {
+CbpLogger::CbpLogger(const char* fname)
+{
 #ifdef LOG_ON
-	handle = fopen(fname, "a");
-	if (handle) {
-		fprintf(handle, "CBP Log initialized\n");
-	}
+    handle = fopen(fname, "a");
+    if (handle)
+    {
+        fprintf(handle, "CBP Log initialized\n");
+    }
 #endif
 }
 
-void CbpLogger::Info(const char *fmt...) {
+void CbpLogger::Info(const char* fmt...)
+{
 #ifdef LOG_ON
-	if (handle) {
-		va_list argptr;
-		va_start(argptr, fmt);
-		vfprintf(handle, fmt, argptr);
-		va_end(argptr);
-		fflush(handle);
-	}
+    if (handle)
+    {
+        va_list argptr;
+        va_start(argptr, fmt);
+        vfprintf(handle, fmt, argptr);
+        va_end(argptr);
+        fflush(handle);
+    }
 #endif
 }
 
-void CbpLogger::Error(const char *fmt...) {
+void CbpLogger::Error(const char* fmt...)
+{
 #ifdef LOG_ON
-	if (handle) {
-		va_list argptr;
-		va_start(argptr, fmt);
-		vfprintf(handle, fmt, argptr);
-		va_end(argptr);
-		fflush(handle);
-	}
+    if (handle)
+    {
+        va_list argptr;
+        va_start(argptr, fmt);
+        vfprintf(handle, fmt, argptr);
+        va_end(argptr);
+        fflush(handle);
+    }
 #endif
 }
 

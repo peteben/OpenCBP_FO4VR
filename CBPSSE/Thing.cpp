@@ -19,11 +19,13 @@ const char* COM_boneName = "COM";
 pos_map Thing::origLocalPos;
 rot_map Thing::origLocalRot;
 
-void Thing::ShowPos(NiPoint3& p) {
+void Thing::ShowPos(NiPoint3& p)
+{
     logger.Info("%8.4f %8.4f %8.4f\n", p.x, p.y, p.z);
 }
 
-void Thing::ShowRot(NiMatrix43& r) {
+void Thing::ShowRot(NiMatrix43& r)
+{
     logger.Info("%8.4f %8.4f %8.4f %8.4f\n", r.data[0][0], r.data[0][1], r.data[0][2], r.data[0][3]);
     logger.Info("%8.4f %8.4f %8.4f %8.4f\n", r.data[1][0], r.data[1][1], r.data[1][2], r.data[1][3]);
     logger.Info("%8.4f %8.4f %8.4f %8.4f\n", r.data[2][0], r.data[2][1], r.data[2][2], r.data[2][3]);
@@ -31,17 +33,20 @@ void Thing::ShowRot(NiMatrix43& r) {
 
 Thing::Thing(NiAVObject* obj, BSFixedString& name)
     : boneName(name)
-    , velocity(NiPoint3(0, 0, 0)) {
-    
+    , velocity(NiPoint3(0, 0, 0))
+{
+
     // Set initial positions
     oldWorldPos = obj->m_worldTransform.pos;
     time = clock();
 }
 
-Thing::~Thing() {
+Thing::~Thing()
+{
 }
 
-void Thing::UpdateConfig(configEntry_t & centry) {
+void Thing::UpdateConfig(configEntry_t& centry)
+{
     stiffness = centry["stiffness"];
     stiffness2 = centry["stiffness2"];
     damping = centry["damping"];
@@ -77,7 +82,7 @@ void Thing::UpdateConfig(configEntry_t & centry) {
 
     if (centry.find("timeStep") != centry.end())
         timeStep = centry["timeStep"];
-    else 
+    else
         timeStep = 0.016f;
 
     gravityBias = centry["gravityBias"];
@@ -91,21 +96,25 @@ void Thing::UpdateConfig(configEntry_t & centry) {
     absRotX = centry["absRotX"] != 0.0;
 }
 
-static float clamp(float val, float min, float max) {
+static float clamp(float val, float min, float max)
+{
     if (val < min) return min;
     else if (val > max) return max;
     return val;
 }
 
-void Thing::Reset(Actor *actor) {
+void Thing::Reset(Actor* actor)
+{
     auto loadedState = actor->unkF0;
-    if (!loadedState || !loadedState->rootNode) {
+    if (!loadedState || !loadedState->rootNode)
+    {
         logger.Error("No loaded state for actor %08x\n", actor->formID);
         return;
     }
     auto obj = loadedState->rootNode->GetObjectByName(&boneName);
 
-    if (!obj) {
+    if (!obj)
+    {
         logger.Error("Couldn't get name for loaded state for actor %08x\n", actor->formID);
         return;
     }
@@ -115,28 +124,34 @@ void Thing::Reset(Actor *actor) {
 }
 
 // Returns 
-template <typename T> int sgn(T val) {
+template <typename T> int sgn(T val)
+{
     return (T(0) < val) - (val < T(0));
 }
 
-NiAVObject* Thing::IsThingActorValid(Actor* actor) {
-    if (!actorUtils::IsActorValid(actor)) {
+NiAVObject* Thing::IsThingActorValid(Actor* actor)
+{
+    if (!actorUtils::IsActorValid(actor))
+    {
         logger.Error("%s: No valid actor in Thing::Update\n", __func__);
         return NULL;
     }
     auto loadedState = actor->unkF0;
-    if (!loadedState || !loadedState->rootNode) {
+    if (!loadedState || !loadedState->rootNode)
+    {
         logger.Error("%s: No loaded state for actor %08x\n", __func__, actor->formID);
         return NULL;
     }
     auto obj = loadedState->rootNode->GetObjectByName(&boneName);
 
-    if (!obj) {
+    if (!obj)
+    {
         logger.Error("%s: Couldn't get name for loaded state for actor %08x\n", __func__, actor->formID);
         return NULL;
     }
 
-    if (!obj->m_parent) {
+    if (!obj->m_parent)
+    {
         logger.Error("%s: Couldn't get bone %s parent for actor %08x\n", __func__, boneName.c_str(), actor->formID);
         return NULL;
     }
@@ -144,7 +159,8 @@ NiAVObject* Thing::IsThingActorValid(Actor* actor) {
     return obj;
 }
 
-void Thing::UpdateThing(Actor *actor) {
+void Thing::UpdateThing(Actor* actor)
+{
     /*LARGE_INTEGER startingTime, endingTime, elapsedMicroseconds;
     LARGE_INTEGER frequency;
 
@@ -152,7 +168,8 @@ void Thing::UpdateThing(Actor *actor) {
     QueryPerformanceCounter(&startingTime);*/
 
     auto obj = IsThingActorValid(actor);
-    if (!obj) {
+    if (!obj)
+    {
         return;
     }
 
@@ -185,7 +202,7 @@ void Thing::UpdateThing(Actor *actor) {
         //	logger.Error("Calculated m_worldTransform.rot Matrix:\n");
         //	ShowRot(sceneObj->m_localTransform.rot * sceneObj->m_parent->m_worldTransform.rot);
         //}
-        sceneObj = sceneObj->m_parent;	
+        sceneObj = sceneObj->m_parent;
     }
 #endif
 
@@ -193,7 +210,8 @@ void Thing::UpdateThing(Actor *actor) {
     auto origLocalPos_iter = origLocalPos.find(boneName.c_str());
     auto origLocalRot_iter = origLocalRot.find(boneName.c_str());
 
-    if (origLocalPos_iter == origLocalPos.end()) {
+    if (origLocalPos_iter == origLocalPos.end())
+    {
         origLocalPos[boneName.c_str()][actor->formID] = obj->m_localTransform.pos;
 #ifdef DEBUG
         logger.Error("for bone %s, actor %08x: \n", boneName.c_str(), actor->formID);
@@ -201,10 +219,12 @@ void Thing::UpdateThing(Actor *actor) {
         ShowPos(obj->m_localTransform.pos);
 #endif
     }
-    else {
+    else
+    {
         auto actorPosMap = origLocalPos.at(boneName.c_str());
         auto actor_iter = actorPosMap.find(actor->formID);
-        if (actor_iter == actorPosMap.end()) {
+        if (actor_iter == actorPosMap.end())
+        {
             origLocalPos[boneName.c_str()][actor->formID] = obj->m_localTransform.pos;
 #ifdef DEBUG
             logger.Error("for bone %s, actor %08x: \n", boneName.c_str(), actor->formID);
@@ -213,7 +233,8 @@ void Thing::UpdateThing(Actor *actor) {
 #endif
         }
     }
-    if (origLocalRot_iter == origLocalRot.end()) {
+    if (origLocalRot_iter == origLocalRot.end())
+    {
         origLocalRot[boneName.c_str()][actor->formID] = obj->m_localTransform.rot;
 #ifdef DEBUG
         logger.Error("for bone %s, actor %08x: \n", boneName.c_str(), actor->formID);
@@ -221,10 +242,12 @@ void Thing::UpdateThing(Actor *actor) {
         ShowRot(obj->m_localTransform.rot);
 #endif
     }
-    else {
+    else
+    {
         auto actorRotMap = origLocalRot.at(boneName.c_str());
         auto actor_iter = actorRotMap.find(actor->formID);
-        if (actor_iter == actorRotMap.end()) {
+        if (actor_iter == actorRotMap.end())
+        {
             origLocalRot[boneName.c_str()][actor->formID] = obj->m_localTransform.rot;
 #ifdef DEBUG
             logger.Error("for bone %s, actor %08x: \n", boneName.c_str(), actor->formID);
@@ -234,7 +257,8 @@ void Thing::UpdateThing(Actor *actor) {
         }
     }
     auto skeletonObj = actorUtils::GetBaseSkeleton(actor);
-    if (skeletonObj == NULL) {
+    if (skeletonObj == NULL)
+    {
         logger.Error("%s: Didn't find thing %s's base skeleton.nif for actor %08x \n", __func__, boneName.c_str(), actor->formID);
         return;
     }
@@ -262,7 +286,7 @@ void Thing::UpdateThing(Actor *actor) {
     //ShowPos(obj->m_parent->m_worldTransform.rot.Transpose() * obj->m_localTransform.pos);
 #endif
     NiMatrix43 targetRot = skeletonObj->m_localTransform.rot.Transpose();
-    NiPoint3 origWorldPos = (obj->m_parent->m_worldTransform.rot.Transpose() * origLocalPos[boneName.c_str()][actor->formID]) +  obj->m_parent->m_worldTransform.pos;
+    NiPoint3 origWorldPos = (obj->m_parent->m_worldTransform.rot.Transpose() * origLocalPos[boneName.c_str()][actor->formID]) + obj->m_parent->m_worldTransform.pos;
 
     // Offset to move Center of Mass make rotational motion more significant
     NiPoint3 target = (targetRot * NiPoint3(cogOffsetX, cogOffsetY, cogOffsetZ)) + origWorldPos;
@@ -295,13 +319,16 @@ void Thing::UpdateThing(Actor *actor) {
     ShowPos(diff);
 #endif
 
-    if (fabs(diff.x) > 100 || fabs(diff.y) > 100 || fabs(diff.z) > 100) {
+    if (fabs(diff.x) > 100 || fabs(diff.y) > 100 || fabs(diff.z) > 100)
+    {
         logger.Error("%s: bone %s transform reset for actor %x\n", __func__, boneName.c_str(), actor->formID);
         obj->m_localTransform.pos = origLocalPos[boneName.c_str()][actor->formID];
         oldWorldPos = target;
         velocity = NiPoint3(0, 0, 0);
         time = clock();
-    } else {
+    }
+    else
+    {
 
         diff *= timeTick / (float)deltaT;
         NiPoint3 posDelta = NiPoint3(0, 0, 0);
@@ -317,7 +344,8 @@ void Thing::UpdateThing(Actor *actor) {
         ShowPos(force);
 #endif
 
-        do {
+        do
+        {
             // Assume mass is 1, so Accelleration is Force, can vary mass by changinf force
             //velocity = (velocity + (force * timeStep)) * (1 - (damping * timeStep));
             velocity = (velocity + (force * timeStep)) - (velocity * (damping * timeStep));
@@ -355,9 +383,9 @@ void Thing::UpdateThing(Actor *actor) {
         // Convert the world translations into local coordinates
 
         NiMatrix43 rotateLinear;
-        rotateLinear.SetEulerAngles(rotateLinearX* DEG_TO_RAD,
-                                    rotateLinearY* DEG_TO_RAD,
-                                    rotateLinearZ* DEG_TO_RAD);
+        rotateLinear.SetEulerAngles(rotateLinearX * DEG_TO_RAD,
+            rotateLinearY * DEG_TO_RAD,
+            rotateLinearZ * DEG_TO_RAD);
 
         NiMatrix43 invRot = rotateLinear * obj->m_parent->m_worldTransform.rot;
 
@@ -395,11 +423,11 @@ void Thing::UpdateThing(Actor *actor) {
 #endif
         // scale positions from config
         NiPoint3 newLocalPos = NiPoint3((localDiff.x) + origLocalPos[boneName.c_str()][actor->formID].x,
-                                        (localDiff.y) + origLocalPos[boneName.c_str()][actor->formID].y,
-                                        (localDiff.z) + origLocalPos[boneName.c_str()][actor->formID].z
+            (localDiff.y) + origLocalPos[boneName.c_str()][actor->formID].y,
+            (localDiff.z) + origLocalPos[boneName.c_str()][actor->formID].z
         );
         obj->m_localTransform.pos = newLocalPos;
-        
+
         if (absRotX) rotDiff.x = fabs(rotDiff.x);
 
         rotDiff.x *= rotationalX;
@@ -419,8 +447,8 @@ void Thing::UpdateThing(Actor *actor) {
         // Do rotation.
         NiMatrix43 rotateRotation;
         rotateRotation.SetEulerAngles(rotateRotationX * DEG_TO_RAD,
-                                      rotateRotationY * DEG_TO_RAD,
-                                      rotateRotationZ * DEG_TO_RAD);
+            rotateRotationY * DEG_TO_RAD,
+            rotateRotationZ * DEG_TO_RAD);
 
         NiMatrix43 standardRot;
 

@@ -15,34 +15,43 @@ using actorUtils::IsActorInPowerArmor;
 // Note we don't ref count the nodes becasue it's ignored when the Actor is deleted, and calling Release after that can corrupt memory
 std::vector<std::string> boneNames;
 
-SimObj::SimObj(Actor *actor, config_t &config)
-    : things(4) {
+SimObj::SimObj(Actor* actor, config_t& config)
+    : things(4)
+{
     id = actor->formID;
     gender = Gender::Unassigned;
     raceEid = std::string("");
 }
 
-SimObj::~SimObj() {
+SimObj::~SimObj()
+{
 }
 
-bool SimObj::AddBonesToThings(Actor* actor, std::vector<std::string>& boneNames) {
+bool SimObj::AddBonesToThings(Actor* actor, std::vector<std::string>& boneNames)
+{
     logger.Error("%s\n", __func__);
-    if (!actor) {
+    if (!actor)
+    {
         return false;
     }
     auto loadedData = actor->unkF0;
 
-    if (loadedData && loadedData->rootNode) {
-        for (std::string b : boneNames) {
-            if (!useWhitelist || (IsBoneInWhitelist(actor, b) && useWhitelist)) {
+    if (loadedData && loadedData->rootNode)
+    {
+        for (std::string b : boneNames)
+        {
+            if (!useWhitelist || (IsBoneInWhitelist(actor, b) && useWhitelist))
+            {
                 logger.Error("%s: adding Bone %s for actor %08x\n", __func__, b.c_str(), actor->formID);
                 BSFixedString cs(b.c_str());
                 auto bone = loadedData->rootNode->GetObjectByName(&cs);
                 auto findBone = things.find(b);
-                if (!bone) {
+                if (!bone)
+                {
                     logger.Info("%s: Failed to find Bone %s for actor %08x\n", __func__, b.c_str(), actor->formID);
                 }
-                else if (findBone == things.end()) {
+                else if (findBone == things.end())
+                {
                     //logger.info("Doing Bone %s for actor %08x\n", b, actor->formID);
                     things.emplace(b, Thing(bone, cs));
                 }
@@ -52,21 +61,25 @@ bool SimObj::AddBonesToThings(Actor* actor, std::vector<std::string>& boneNames)
     return true;
 }
 
-bool SimObj::Bind(Actor *actor, std::vector<std::string>& boneNames, config_t &config)
+bool SimObj::Bind(Actor* actor, std::vector<std::string>& boneNames, config_t& config)
 {
-    if (!actor) {
+    if (!actor)
+    {
         return false;
     }
     auto loadedData = actor->unkF0;
-    if (loadedData && loadedData->rootNode) {
+    if (loadedData && loadedData->rootNode)
+    {
         bound = true;
 
         things.clear();
-        
-        if (actorUtils::IsActorMale(actor)) {
+
+        if (actorUtils::IsActorMale(actor))
+        {
             gender = Gender::Male;
         }
-        else {
+        else
+        {
             gender = Gender::Female;
         }
 
@@ -79,31 +92,39 @@ bool SimObj::Bind(Actor *actor, std::vector<std::string>& boneNames, config_t &c
     return false;
 }
 
-SimObj::Gender SimObj::GetGender() {
+SimObj::Gender SimObj::GetGender()
+{
     return gender;
 }
 
-std::string SimObj::GetRaceEID() {
+std::string SimObj::GetRaceEID()
+{
     return raceEid;
 }
 
-void SimObj::Reset() {
+void SimObj::Reset()
+{
     bound = false;
     things.clear();
 }
 
-void SimObj::Update(Actor *actor) {
+void SimObj::Update(Actor* actor)
+{
     if (!bound)
         return;
 
-    for (auto &t : things) {
+    for (auto& t : things)
+    {
         //logger.Info("SimObj update: doing thing %s\n", t.first.c_str());
-        
+
         // Might be a better way to do this
-        if (boneIgnores.find(actor->formID) != boneIgnores.end()) {
+        if (boneIgnores.find(actor->formID) != boneIgnores.end())
+        {
             auto actorBoneMap = boneIgnores.at(actor->formID);
-            if (actorBoneMap.find(t.first) != actorBoneMap.end()) {
-                if (actorBoneMap.at(t.first)) {
+            if (actorBoneMap.find(t.first) != actorBoneMap.end())
+            {
+                if (actorBoneMap.at(t.first))
+                {
                     continue;
                 }
             }
@@ -112,15 +133,18 @@ void SimObj::Update(Actor *actor) {
         if (!useWhitelist ||
             (IsBoneInWhitelist(actor, t.first) && useWhitelist) &&
             !IsActorInPowerArmor(actor) &&
-            NULL != GetBaseSkeleton(actor)) {
+            NULL != GetBaseSkeleton(actor))
+        {
             t.second.UpdateThing(actor);
         }
     }
 }
 
-bool SimObj::UpdateConfig(config_t& config) {
+bool SimObj::UpdateConfig(config_t& config)
+{
     logger.Error("%s\n", __func__);
-    for (auto &thing : things) {
+    for (auto& thing : things)
+    {
         //logger.Info("%s: Updating config for Thing %s\n", __func__, thing.first.c_str());
         thing.second.UpdateConfig(config[std::string(thing.first)]);
     }

@@ -8,7 +8,8 @@
 typedef std::unordered_map<const char*, std::unordered_map<UInt32, NiPoint3>> pos_map;
 typedef std::unordered_map<const char*, std::unordered_map<UInt32, NiMatrix43>> rot_map;
 
-class Thing {
+class Thing
+{
     BSFixedString boneName;
     NiPoint3 oldWorldPos;
     float oldRotZ;
@@ -58,14 +59,14 @@ public:
     static pos_map origLocalPos;
     static rot_map origLocalRot;
 
-    Thing(NiAVObject *obj, BSFixedString &name);
+    Thing(NiAVObject* obj, BSFixedString& name);
     ~Thing();
 
     NiAVObject* IsThingActorValid(Actor* actor);
     void Reset(Actor* actor);
-    void UpdateThing(Actor* actor);	
+    void UpdateThing(Actor* actor);
     void UpdateConfig(configEntry_t& centry);
-    
+
     void ShowPos(NiPoint3& p);
     void ShowRot(NiMatrix43& r);
 };
