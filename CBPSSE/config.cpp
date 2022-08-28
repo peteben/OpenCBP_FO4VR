@@ -34,6 +34,7 @@ std::map<std::multiset<UInt64>, config_t> cachedConfigs;
 // TODO data structure these
 whitelist_t whitelist;
 std::vector<std::string> raceWhitelist;
+void DumpConfigToLog();
 
 UInt32 GetFormIDFromString(std::string const& configString)
 {
@@ -218,6 +219,7 @@ bool LoadConfig()
         }
         else if (splitSubAttachStr.first == subAttachStr.end())
         {
+            // Get "XYZ" from Attach.XYZ
             auto attachSubname = std::string(splitSubAttachStr.second, sectionsIter->end());
 
             UInt32 attachPriority;
@@ -241,6 +243,7 @@ bool LoadConfig()
                 priorityNameMappings[attachSubname] = attachPriority;
             }
 
+            // Finally read the "Attach." section
             auto sectionMap = configReader.Section(*sectionsIter);
             for (auto& valuesIter : sectionMap)
             {
@@ -251,11 +254,13 @@ bool LoadConfig()
                 if (attachName.empty())
                 {
                     // "Touch" the map to add empty entry for bone in config_t to signal deletion later when building config from overrides
+                    // This allows for disabling specific disabling attach configs
                     configArmorOverrideMap[attachPriority].config[boneName];
                 }
                 else if (sections.find(attachName) != sections.end())
                 {
                     auto attachMapSection = configReader.Section(attachName);
+                    // Find the bone's settings and add them to configArmorOverrideMap
                     for (auto& attachIter : attachMapSection)
                     {
                         auto& keyName = attachIter.first;

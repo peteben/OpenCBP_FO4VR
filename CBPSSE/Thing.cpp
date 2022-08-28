@@ -4,6 +4,10 @@
 #include "f4se\NiNodes.h"
 #include <time.h>
 
+//## thing_map_lock
+// Maps are sorted every edit time, so if it is parallel processing then a high probability of overloading
+std::shared_mutex thing_map_lock;
+
 constexpr float DEG_TO_RAD = 3.14159265 / 180;
 const char* skeletonNif_boneName = "skeleton.nif";
 const char* COM_boneName = "COM";
@@ -32,7 +36,8 @@ void Thing::ShowRot(NiMatrix43& r)
 }
 
 Thing::Thing(NiAVObject* obj, BSFixedString& name)
-    : boneName(name)
+    : thingObj(obj)
+    , boneName(name)
     , velocity(NiPoint3(0, 0, 0))
 {
 
@@ -43,6 +48,65 @@ Thing::Thing(NiAVObject* obj, BSFixedString& name)
 
 Thing::~Thing()
 {
+}
+
+void Thing::StoreOriginalTransforms(Actor* actor)
+{
+    // Save the bones' original local values, per actor, if they already haven't
+    auto origLocalPos_iter = origLocalPos.find(boneName.c_str());
+    auto origLocalRot_iter = origLocalRot.find(boneName.c_str());
+
+    auto obj = thingObj;
+
+    // Original Bone Position
+    if (origLocalPos_iter == origLocalPos.end())
+    {
+        origLocalPos[boneName.c_str()][actor->formID] = obj->m_localTransform.pos;
+#ifdef DEBUG
+        logger.Error("for bone %s, actor %08x: \n", boneName.c_str(), actor->formID);
+        logger.Error("firstRun pos Set: \n");
+        ShowPos(obj->m_localTransform.pos);
+#endif
+    }
+    else
+    {
+        auto actorPosMap = origLocalPos.at(boneName.c_str());
+        auto actor_iter = actorPosMap.find(actor->formID);
+        if (actor_iter == actorPosMap.end())
+        {
+            origLocalPos[boneName.c_str()][actor->formID] = obj->m_localTransform.pos;
+#ifdef DEBUG
+            logger.Error("for bone %s, actor %08x: \n", boneName.c_str(), actor->formID);
+            logger.Error("firstRun pos Set: \n");
+            ShowPos(obj->m_localTransform.pos);
+#endif
+        }
+    }
+
+    // Original Bone Rotation
+    if (origLocalRot_iter == origLocalRot.end())
+    {
+        origLocalRot[boneName.c_str()][actor->formID] = obj->m_localTransform.rot;
+#ifdef DEBUG
+        logger.Error("for bone %s, actor %08x: \n", boneName.c_str(), actor->formID);
+        logger.Error("firstRun rot Set:\n");
+        ShowRot(obj->m_localTransform.rot);
+#endif
+    }
+    else
+    {
+        auto actorRotMap = origLocalRot.at(boneName.c_str());
+        auto actor_iter = actorRotMap.find(actor->formID);
+        if (actor_iter == actorRotMap.end())
+        {
+            origLocalRot[boneName.c_str()][actor->formID] = obj->m_localTransform.rot;
+#ifdef DEBUG
+            logger.Error("for bone %s, actor %08x: \n", boneName.c_str(), actor->formID);
+            logger.Error("firstRun rot Set: \n");
+            ShowRot(obj->m_localTransform.rot);
+#endif
+        }
+    }
 }
 
 void Thing::UpdateConfig(configEntry_t& centry)
@@ -167,7 +231,11 @@ void Thing::UpdateThing(Actor* actor)
     QueryPerformanceFrequency(&frequency);
     QueryPerformanceCounter(&startingTime);*/
 
-    auto obj = IsThingActorValid(actor);
+    thingObj = IsThingActorValid(actor);
+    auto obj = thingObj;
+
+    bool isSkippedmanyFrames = false;
+
     if (!obj)
     {
         return;
@@ -175,6 +243,8 @@ void Thing::UpdateThing(Actor* actor)
 
     auto newTime = clock();
     auto deltaT = newTime - time;
+
+    isSkippedmanyFrames = deltaT >= 200; // Frame blank for more than 0.2 sec / 5 fps
 
     time = newTime;
     if (deltaT > 64) deltaT = 64;
@@ -206,79 +276,14 @@ void Thing::UpdateThing(Actor* actor)
     }
 #endif
 
-    // Save the bones' original local values if they already haven't
-    auto origLocalPos_iter = origLocalPos.find(boneName.c_str());
-    auto origLocalRot_iter = origLocalRot.find(boneName.c_str());
+    StoreOriginalTransforms(actor);
 
-    if (origLocalPos_iter == origLocalPos.end())
-    {
-        origLocalPos[boneName.c_str()][actor->formID] = obj->m_localTransform.pos;
-#ifdef DEBUG
-        logger.Error("for bone %s, actor %08x: \n", boneName.c_str(), actor->formID);
-        logger.Error("firstRun pos Set: \n");
-        ShowPos(obj->m_localTransform.pos);
-#endif
-    }
-    else
-    {
-        auto actorPosMap = origLocalPos.at(boneName.c_str());
-        auto actor_iter = actorPosMap.find(actor->formID);
-        if (actor_iter == actorPosMap.end())
-        {
-            origLocalPos[boneName.c_str()][actor->formID] = obj->m_localTransform.pos;
-#ifdef DEBUG
-            logger.Error("for bone %s, actor %08x: \n", boneName.c_str(), actor->formID);
-            logger.Error("firstRun pos Set: \n");
-            ShowPos(obj->m_localTransform.pos);
-#endif
-        }
-    }
-    if (origLocalRot_iter == origLocalRot.end())
-    {
-        origLocalRot[boneName.c_str()][actor->formID] = obj->m_localTransform.rot;
-#ifdef DEBUG
-        logger.Error("for bone %s, actor %08x: \n", boneName.c_str(), actor->formID);
-        logger.Error("firstRun rot Set:\n");
-        ShowRot(obj->m_localTransform.rot);
-#endif
-    }
-    else
-    {
-        auto actorRotMap = origLocalRot.at(boneName.c_str());
-        auto actor_iter = actorRotMap.find(actor->formID);
-        if (actor_iter == actorRotMap.end())
-        {
-            origLocalRot[boneName.c_str()][actor->formID] = obj->m_localTransform.rot;
-#ifdef DEBUG
-            logger.Error("for bone %s, actor %08x: \n", boneName.c_str(), actor->formID);
-            logger.Error("firstRun rot Set: \n");
-            ShowRot(obj->m_localTransform.rot);
-#endif
-        }
-    }
     auto skeletonObj = actorUtils::GetBaseSkeleton(actor);
     if (skeletonObj == NULL)
     {
         logger.Error("%s: Didn't find thing %s's base skeleton.nif for actor %08x \n", __func__, boneName.c_str(), actor->formID);
         return;
     }
-
-    //auto skeletonObj = obj;
-    //bool skeletonFound = false;
-    //while (skeletonObj->m_parent)
-    //{
-    //    if (skeletonObj->m_parent->m_name == BSFixedString(skeletonNif_boneName)) {
-    //        skeletonObj = skeletonObj->m_parent;
-    //        skeletonFound = true;
-    //        break;
-    //    }
-    //    skeletonObj = skeletonObj->m_parent;
-    //}
-    //if (skeletonFound == false) {
-    //    logger.Error("%s: Couldn't find thing %s's skeleton.nif for actor %08x\n", __func__, boneName.c_str(), actor->formID);
-    //    return;
-    //}
-
 
 #if DEBUG
     logger.Error("bone %s for actor %08x with parent %s\n", boneName.c_str(), actor->formID, skeletonObj->m_name.c_str());

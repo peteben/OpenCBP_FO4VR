@@ -16,7 +16,6 @@ namespace actorUtils
     bool IsActorMale(Actor* actor);
     bool IsActorTrackable(Actor* actor);
     bool IsActorValid(Actor* actor);
-    bool IsBoneValid(Actor* actor, BSFixedString* boneName);
     bool IsBoneInWhitelist(Actor* actor, std::string boneName);
 
     const EquippedArmor GetActorEquippedArmor(Actor* actor, UInt32 slot);

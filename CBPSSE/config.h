@@ -5,6 +5,9 @@
 #include <map>
 #include <vector>
 
+#include <concurrent_vector.h>
+#include <concurrent_unordered_map.h>
+
 #include "f4se/GameReferences.h"
 
 class Configuration
@@ -17,8 +20,8 @@ struct whitelistSex
     bool female;
 };
 
-typedef std::unordered_map<std::string, float> configEntry_t;
-typedef std::unordered_map<std::string, configEntry_t> config_t;
+typedef concurrency::concurrent_unordered_map<std::string, float> configEntry_t; // Map settings for a particular bone
+typedef concurrency::concurrent_unordered_map<std::string, configEntry_t> config_t; // Settings for a set of bones
 typedef std::unordered_map<std::string, std::unordered_map<std::string, whitelistSex>> whitelist_t;
 
 struct armorOverrideData

@@ -15,7 +15,7 @@ using actorUtils::IsActorInPowerArmor;
 // Note we don't ref count the nodes becasue it's ignored when the Actor is deleted, and calling Release after that can corrupt memory
 std::vector<std::string> boneNames;
 
-SimObj::SimObj(Actor* actor, config_t& config)
+SimObj::SimObj(Actor* actor)
     : things(4)
 {
     id = actor->formID;
@@ -53,7 +53,7 @@ bool SimObj::AddBonesToThings(Actor* actor, std::vector<std::string>& boneNames)
                 else if (findBone == things.end())
                 {
                     //logger.info("Doing Bone %s for actor %08x\n", b, actor->formID);
-                    things.emplace(b, Thing(bone, cs));
+                    things.insert(std::make_pair(b, Thing(bone, cs)));
                 }
             }
         }
@@ -86,7 +86,7 @@ bool SimObj::Bind(Actor* actor, std::vector<std::string>& boneNames, config_t& c
         raceEid = actorUtils::GetActorRaceEID(actor);
 
         AddBonesToThings(actor, boneNames);
-        UpdateConfig(config);
+        UpdateConfigs(config);
         return  true;
     }
     return false;
@@ -140,13 +140,14 @@ void SimObj::Update(Actor* actor)
     }
 }
 
-bool SimObj::UpdateConfig(config_t& config)
+bool SimObj::UpdateConfigs(config_t& config)
 {
     logger.Error("%s\n", __func__);
-    for (auto& thing : things)
-    {
-        //logger.Info("%s: Updating config for Thing %s\n", __func__, thing.first.c_str());
-        thing.second.UpdateConfig(config[std::string(thing.first)]);
-    }
+    // TODO does this need parallelization?
+    concurrency::parallel_for_each(things.begin(), things.end(), [&](auto& thing)
+        {
+            //logger.Info("%s: Updating config for Thing %s\n", __func__, thing.first.c_str());
+            thing.second.UpdateConfig(config[std::string(thing.first)]);
+        });
     return true;
 }

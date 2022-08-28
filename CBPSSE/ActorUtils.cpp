@@ -189,10 +189,14 @@ const actorUtils::EquippedArmor actorUtils::GetActorEquippedArmor(Actor* actor, 
 config_t actorUtils::BuildConfigForActor(Actor* actor)
 {
     std::multiset<UInt64> key;
+
     for (auto slot : usedSlots)
     {
+        // Check if actor has config's slot equipped
         UInt64 data = 0;
         auto equipped = actorUtils::GetActorEquippedArmor(actor, slot);
+
+        // If there were any slots found, store it
         if (equipped.armor)
         {
             data |= equipped.armor->formID;
@@ -202,71 +206,86 @@ config_t actorUtils::BuildConfigForActor(Actor* actor)
         {
             data |= equipped.model->formID;
         }
-        key.emplace(data);
+        if (data)
+        {
+            key.emplace(data);
+        }
     }
 
+    // Search cached configs for already existing config
     auto found = cachedConfigs.find(key);
     if (found != cachedConfigs.end())
     {
         return found->second;
     }
 
+    // Otherwise, build the actor's config
     config_t baseConfig = config;
     for (auto overrideConfigIter = configArmorOverrideMap.rbegin(); overrideConfigIter != configArmorOverrideMap.rend(); ++overrideConfigIter)
     {
-        auto data = overrideConfigIter->second;
+        auto orData = overrideConfigIter->second;
 
         std::vector<actorUtils::EquippedArmor> equippedList;
-        for (auto slot : data.slots)
+
+        // Make a list of actor's slots that are config's slots
+        for (auto slot : orData.slots)
         {
-            auto equipped = actorUtils::GetActorEquippedArmor(actor, slot);
+            EquippedArmor equipped = actorUtils::GetActorEquippedArmor(actor, slot);
             if (equipped.armor && equipped.model)
             {
                 equippedList.push_back(equipped);
             }
         }
 
-        auto armorFormID = data.armors.begin();
-        for (; armorFormID != data.armors.end(); ++armorFormID)
+
+        auto armorFormID = orData.armors.begin();
+        // whitelist filter
+        if (orData.isFilterInverted)
         {
-            bool breakOutside = false;
-            for (auto equipped : equippedList)
+            for (; armorFormID != orData.armors.end(); ++armorFormID)
             {
-                if (*armorFormID == equipped.armor->formID || *armorFormID == equipped.model->formID)
+                bool breakOutside = false;
+                //  Check config's filter IDs against found slot's IDs 
+                for (auto equipped : equippedList)
                 {
-                    if (data.isFilterInverted)
+                    if (*armorFormID == equipped.armor->formID || *armorFormID == equipped.model->formID)
                     {
-                        for (auto val : data.config)
+                        for (auto val : orData.config)
                         {
-                            if (data.config[val.first].empty())
+                            // for each bone, if it is empty, we need to disable it,
+                            // otherwise the configEntry is good.
+                            if (orData.config[val.first].empty())
                             {
-                                baseConfig.erase(val.first);
+                                // This is ok because we're doing this to a premade copy sequentially
+                                baseConfig.unsafe_erase(val.first);
                             }
                             else
                             {
                                 baseConfig[val.first] = val.second;
                             }
                         }
-                    }
 
-                    breakOutside = true;
+                        breakOutside = true;
+                        break;
+                    }
+                }
+
+                if (breakOutside)
+                {
                     break;
                 }
             }
-
-            if (breakOutside)
-            {
-                break;
-            }
         }
 
-        if (!data.isFilterInverted && armorFormID == data.armors.end() && !equippedList.empty())
+        // blacklist filter
+        if (!orData.isFilterInverted && armorFormID == orData.armors.end() && !equippedList.empty())
         {
-            for (auto val : data.config)
+            for (auto val : orData.config)
             {
-                if (data.config[val.first].empty())
+                if (orData.config[val.first].empty())
                 {
-                    baseConfig.erase(val.first);
+                    // This is ok because we're doing this to a premade copy sequentially
+                    baseConfig.unsafe_erase(val.first);
                 }
                 else
                 {

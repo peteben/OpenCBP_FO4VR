@@ -2,6 +2,9 @@
 
 #include <unordered_map>
 #include <vector>
+#include "amp.h"
+#include <ppl.h>
+
 #include "f4se/GameReferences.h"
 #include "Thing.h"
 #include "config.h"
@@ -17,8 +20,8 @@ public:
         Unassigned
     };
 
-    std::unordered_map<std::string, Thing> things;
-    SimObj(Actor* actor, config_t& config);
+    concurrency::concurrent_unordered_map<std::string, Thing> things;
+    SimObj(Actor* actor);
     SimObj() {}
     ~SimObj();
     bool AddBonesToThings(Actor* actor, std::vector<std::string>& boneNames);
@@ -27,7 +30,7 @@ public:
     std::string GetRaceEID();
     void Reset();
     void Update(Actor* actor);
-    bool UpdateConfig(config_t& config);
+    bool UpdateConfigs(config_t& config);
     bool IsBound() { return bound; }
 private:
     UInt32 id = 0;

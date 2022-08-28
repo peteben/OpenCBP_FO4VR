@@ -22,6 +22,10 @@
 #include <unordered_set>
 #include <unordered_map>
 
+#include <concurrent_unordered_map.h>
+#include <concurrent_vector.h>
+#include <ppl.h>
+
 #include "ActorEntry.h"
 #include "ActorUtils.h"
 #include "log.h"
@@ -47,6 +51,8 @@ using actorUtils::IsActorTrackable;
 using actorUtils::IsActorValid;
 using actorUtils::BuildConfigForActor;
 using actorUtils::GetActorRaceEID;
+
+std::atomic<TESObjectCELL*> currCell = nullptr;
 
 extern F4SETaskInterface* g_task;
 
@@ -118,21 +124,15 @@ inline void safe_delete(T*& in)
 
 
 
-std::unordered_map<UInt32, SimObj> actors;  // Map of Actor (stored as form ID) to its Simulation Object
+concurrency::concurrent_unordered_map<UInt32, SimObj> actors;  // Map of Actor (stored as form ID) to its Simulation Object
 TESObjectCELL* curCell = nullptr;
 
 
 void UpdateActors()
 {
-    //LARGE_INTEGER startingTime, endingTime, elapsedMicroseconds;
-    //LARGE_INTEGER frequency;
-
-    //QueryPerformanceFrequency(&frequency);
-    //QueryPerformanceCounter(&startingTime);
-
     // We scan the cell and build the list every time - only look up things by ID once
     // we retain all state by actor ID, in a map - it's cleared on cell change
-    std::vector<ActorEntry> actorEntries;
+    concurrency::concurrent_vector<ActorEntry> actorEntries;
 
     //logger.error("scan Cell\n");
     auto player = DYNAMIC_CAST(LookupFormByID(0x14), TESForm, Actor);
@@ -151,38 +151,38 @@ void UpdateActors()
     else
     {
         // Attempt to get cell's objects
-        for (int i = 0; i < cell->objectList.count; i++)
-        {
-            auto ref = cell->objectList[i];
-            if (ref)
+        concurrency::parallel_for(UInt32(0), cell->objectList.count, [&](UInt32 i)
             {
-                // Attempt to get actors
-                auto actor = DYNAMIC_CAST(ref, TESObjectREFR, Actor);
-                if (actor && actor->unkF0)
+                auto ref = cell->objectList[i];
+                if (ref)
                 {
-                    // Find if actors is already being tracked
-                    auto soIt = actors.find(actor->formID);
-                    if (soIt == actors.end() && IsActorTrackable(actor))
+                    // Attempt to get actors
+                    auto actor = DYNAMIC_CAST(ref, TESObjectREFR, Actor);
+                    if (actor && actor->unkF0)
                     {
-                        //logger.Info("Tracking Actor with form ID %08x in cell %ld, race is %s, gender is %d\n", 
-                        //    actor->formID, actor->parentCell->formID,
-                        //    actor->race->editorId.c_str(),
-                        //    IsActorMale(actor));
-                        // Make SimObj and place new element in Things
-                        auto obj = SimObj(actor, config);
-                        if (IsActorValid(actor))
+                        // Find if actors is already being tracked
+                        auto soIt = actors.find(actor->formID);
+                        if (soIt == actors.end() && IsActorTrackable(actor))
                         {
-                            actors.emplace(actor->formID, obj);
-                            actorEntries.emplace_back(ActorEntry{ actor->formID, actor });
+                            //logger.Info("Tracking Actor with form ID %08x in cell %ld, race is %s, gender is %d\n", 
+                            //    actor->formID, actor->parentCell->formID,
+                            //    actor->race->editorId.c_str(),
+                            //    IsActorMale(actor));
+                            // Make SimObj and place new element in Things
+                            auto obj = SimObj(actor);
+                            if (IsActorValid(actor))
+                            {
+                                actors.insert(std::make_pair(actor->formID, obj));
+                                actorEntries.push_back(ActorEntry{ actor->formID, actor });
+                            }
+                        }
+                        else if (IsActorValid(actor))
+                        {
+                            actorEntries.push_back(ActorEntry{ actor->formID, actor });
                         }
                     }
-                    else if (IsActorValid(actor))
-                    {
-                        actorEntries.emplace_back(ActorEntry{ actor->formID, actor });
-                    }
                 }
-            }
-        }
+            });
     }
 
     //static bool done = false;
@@ -205,17 +205,18 @@ void UpdateActors()
     {
         count = 0;
         auto reloadActors = LoadConfig();
-        for (auto& a : actorEntries)
+        for each (auto & a in actorEntries)
         {
-            auto objIterator = actors.find(a.id);
-            if (objIterator == actors.end())
+            auto actorsIterator = actors.find(a.id);
+            if (actorsIterator == actors.end())
             {
                 //logger.error("Sim Object not found in tracked actors\n");
             }
             else
             {
-                objIterator->second.AddBonesToThings(a.actor, boneNames);
-                objIterator->second.UpdateConfig(config);
+                auto& simObj = actorsIterator->second;
+                simObj.AddBonesToThings(a.actor, boneNames);
+                simObj.UpdateConfigs(config);
             }
         }
 
@@ -230,17 +231,16 @@ void UpdateActors()
     //logger.error("Updating %d entities\n", actorEntries.size());
     for (auto& a : actorEntries)
     {
-        auto objIterator = actors.find(a.id);
-        if (objIterator == actors.end())
+        auto actorsIterator = actors.find(a.id);
+        if (actorsIterator == actors.end())
         {
             //logger.error("Sim Object not found in tracked actors\n");
         }
         else
         {
-            config_t composedConfig = BuildConfigForActor(a.actor);
+            auto& simObj = actorsIterator->second;
 
-            auto& simObj = objIterator->second;
-
+            auto& composedConfig = BuildConfigForActor(a.actor);
 
             SimObj::Gender gender = IsActorMale(a.actor) ? SimObj::Gender::Male : SimObj::Gender::Female;
 
@@ -255,11 +255,6 @@ void UpdateActors()
                     simObj.Reset();
                 }
             }
-
-            if (simObj.IsBound())
-            {
-                simObj.Update(a.actor);
-            }
             else
             {
                 simObj.Bind(a.actor, boneNames, composedConfig);
@@ -267,13 +262,26 @@ void UpdateActors()
         }
     }
 
+    concurrency::parallel_for_each(actorEntries.begin(), actorEntries.end(), [&](const auto& a)
+        {
+            auto actorsIterator = actors.find(a.id);
+            if (actorsIterator == actors.end())
+            {
+                //logger.error("Sim Object not found in tracked actors\n");
+            }
+            else
+            {
+                auto& simObj = actorsIterator->second;
+
+                if (simObj.IsBound())
+                {
+                    simObj.Update(a.actor);
+                }
+            }
+        });
+
 FAILED:
     return;
-    //QueryPerformanceCounter(&endingTime);
-    //elapsedMicroseconds.QuadPart = endingTime.QuadPart - startingTime.QuadPart;
-    //elapsedMicroseconds.QuadPart *= 1000000000LL;
-    //elapsedMicroseconds.QuadPart /= frequency.QuadPart;
-    //logger.info("Update Time = %lld ns\n", elapsedMicroseconds.QuadPart);
 }
 
 

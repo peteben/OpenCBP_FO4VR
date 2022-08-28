@@ -8,6 +8,24 @@
 typedef std::unordered_map<const char*, std::unordered_map<UInt32, NiPoint3>> pos_map;
 typedef std::unordered_map<const char*, std::unordered_map<UInt32, NiMatrix43>> rot_map;
 
+inline void RefreshNode(NiAVObject* node)
+{
+    if (node == nullptr || node->m_name == nullptr)
+        return;
+
+    NiAVObject::NiUpdateData npd;
+    npd.unk00 = nullptr;
+    npd.pCamera = nullptr;
+    npd.flags = 0;
+    npd.unk14 = 0;
+    npd.unk18 = 0;
+    npd.unk20 = 0;
+    npd.unk28 = 0;
+    npd.unk30 = 0;
+    npd.unk38 = 0;
+    node->UpdateWorldData(&npd);
+}
+
 class Thing
 {
     BSFixedString boneName;
@@ -15,6 +33,7 @@ class Thing
     float oldRotZ;
     NiPoint3 velocity;
     clock_t time;
+    NiAVObject* thingObj;
 
 public:
     float stiffness = 0.5f;
@@ -64,6 +83,7 @@ public:
 
     NiAVObject* IsThingActorValid(Actor* actor);
     void Reset(Actor* actor);
+    void StoreOriginalTransforms(Actor* actor);
     void UpdateThing(Actor* actor);
     void UpdateConfig(configEntry_t& centry);
 

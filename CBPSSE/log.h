@@ -1,5 +1,6 @@
 #pragma once
 #include <stdio.h>
+#include <shared_mutex>
 
 class CbpLogger
 {
@@ -9,6 +10,8 @@ public:
     void Error(const char* args...);
 
     FILE* handle;
+
+    std::shared_mutex log_lock;
 };
 
 extern CbpLogger logger;
