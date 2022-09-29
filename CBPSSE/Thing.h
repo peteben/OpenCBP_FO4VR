@@ -4,9 +4,12 @@
 #include <f4se/GameReferences.h>
 #include <time.h>
 #include "config.h"
+#include <shared_mutex>
 
-typedef std::unordered_map<const char*, std::unordered_map<UInt32, NiPoint3>> pos_map;
-typedef std::unordered_map<const char*, std::unordered_map<UInt32, NiMatrix43>> rot_map;
+using std::shared_mutex;
+
+typedef concurrency::concurrent_unordered_map<const char*, std::unordered_map<UInt32, NiPoint3>> pos_map;
+typedef concurrency::concurrent_unordered_map<const char*, std::unordered_map<UInt32, NiMatrix43>> rot_map;
 
 inline void RefreshNode(NiAVObject* node)
 {
@@ -30,10 +33,19 @@ class Thing
 {
     BSFixedString boneName;
     NiPoint3 oldWorldPos;
+    NiPoint3 oldWorldPosRot;
+    //NiPoint3 oldLocalDiff;
     float oldRotZ;
     NiPoint3 velocity;
     clock_t time;
     NiAVObject* thingObj;
+    bool IsBreastBone;
+    NiPoint3 varGravityCorrection;
+    NiPoint3 firstWorldPos;
+    NiPoint3 firstSkeletonPos;
+    bool firstSkeleton;
+    NiMatrix43 firstWorldRot;
+    NiMatrix43 origWorldRot;
 
 public:
     float stiffness = 0.5f;
@@ -77,6 +89,10 @@ public:
 
     static pos_map origLocalPos;
     static rot_map origLocalRot;
+    static rot_map origChestWorldRot;
+
+    // Maps are sorted every edit time, so if it is parallel processing then a high probability of overloading
+    static shared_mutex thing_map_lock;
 
     Thing(NiAVObject* obj, BSFixedString& name);
     ~Thing();
@@ -89,4 +105,18 @@ public:
 
     void ShowPos(NiPoint3& p);
     void ShowRot(NiMatrix43& r);
+
+    static inline bool ContainsNoCase(std::string str, std::string ministr)
+    {
+        std::transform(str.begin(), str.end(), str.begin(), ::tolower);
+        std::transform(ministr.begin(), ministr.end(), ministr.begin(), ::tolower);
+
+        if (str.find(ministr) != std::string::npos)
+        {
+            return true;
+        }
+        else
+            return false;
+    }
+
 };
