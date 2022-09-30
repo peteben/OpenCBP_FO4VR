@@ -53,7 +53,7 @@ bool SimObj::AddBonesToThings(Actor* actor, std::vector<std::string>& boneNames)
                 else if (findBone == things.end())
                 {
                     //logger.info("Doing Bone %s for actor %08x\n", b, actor->formID);
-                    things.insert(std::make_pair(b, Thing(bone, cs)));
+                    things.insert(std::make_pair(b, Thing(bone, cs, actor)));
                 }
             }
         }

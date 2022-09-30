@@ -41,11 +41,10 @@ class Thing
     NiAVObject* thingObj;
     bool IsBreastBone;
     NiPoint3 varGravityCorrection;
-    NiPoint3 firstWorldPos;
-    NiPoint3 firstSkeletonPos;
-    bool firstSkeleton;
     NiMatrix43 firstWorldRot;
     NiMatrix43 origWorldRot;
+    bool rightSide;
+    Actor* m_actor;
 
 public:
     float stiffness = 0.5f;
@@ -94,7 +93,7 @@ public:
     // Maps are sorted every edit time, so if it is parallel processing then a high probability of overloading
     static shared_mutex thing_map_lock;
 
-    Thing(NiAVObject* obj, BSFixedString& name);
+    Thing(NiAVObject* obj, BSFixedString& name, Actor* actor);
     ~Thing();
 
     NiAVObject* IsThingActorValid(Actor* actor);
