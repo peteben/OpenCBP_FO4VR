@@ -40,7 +40,7 @@ class Thing
     clock_t time;
     NiAVObject* thingObj;
     bool IsBreastBone;
-    NiPoint3 varGravityCorrection;
+    NiPoint3 varGravitySupine;
     NiMatrix43 firstWorldRot;
     NiMatrix43 origWorldRot;
     bool rightSide;
@@ -85,6 +85,14 @@ public:
     float timeStep = 0.016f;
 
     bool absRotX = 0;
+
+    float linearSpreadforceX = 0.0f;
+    float linearSpreadforceY = 0.0f;
+    float linearSpreadforceZ = 0.0f;
+
+    float gravitySupineX = 0.0f;
+    float gravitySupineY = 0.0f;
+    float gravitySupineZ = 0.0f;
 
     static pos_map origLocalPos;
     static rot_map origLocalRot;
