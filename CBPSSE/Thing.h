@@ -40,7 +40,6 @@ class Thing
     clock_t time;
     NiAVObject* thingObj;
     bool IsBreastBone;
-    NiPoint3 varGravitySupine;
     NiMatrix43 firstWorldRot;
     NiMatrix43 origWorldRot;
     bool rightSide;
@@ -106,6 +105,7 @@ public:
 
     NiAVObject* IsThingActorValid(Actor* actor);
     void Reset(Actor* actor);
+    NiPoint3 CalculateGravitySupine(Actor* actor);
     void StoreOriginalTransforms(Actor* actor);
     void UpdateThing(Actor* actor);
     void UpdateConfig(configEntry_t& centry);

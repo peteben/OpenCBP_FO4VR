@@ -69,6 +69,39 @@ Thing::~Thing()
 {
 }
 
+NiPoint3 Thing::CalculateGravitySupine(Actor* actor)
+{
+    NiPoint3 varGravitySupine = NiPoint3(0.0, 0.0, 0.0);
+
+    if (!IsBreastBone) //other bones don't need to edited gravity by SPINE2 obj
+    {
+        //other nodes are based on parent obj
+        varGravitySupine = NiPoint3(0.0, 0.0, 0.0);
+        return varGravitySupine;
+    }
+
+    //Get the reference bone to know which way the breasts are orientated
+    //thing_ReadNode_lock.lock();
+    BSFixedString chest_str("Chest");
+
+    NiAVObject* breastGravityReferenceBone = actor->unkF0->rootNode->GetObjectByName(&chest_str);
+
+    //thing_ReadNode_lock.unlock();
+
+    float gravityRatio = 0.0f;
+    if (breastGravityReferenceBone != nullptr)
+    {
+        //auto breastRot = breastGravityReferenceBone->m_worldTransform.rot;
+        //Get the orientation (here the Z element of the rotation matrix (approx 1.0 when standing up, approx -1.0 when upside down))
+        auto chestOrientation = breastGravityReferenceBone->m_worldTransform.rot.data[1][2];
+        gravityRatio = chestOrientation >= 0.0 ? chestOrientation : 0.0;
+    }
+
+    varGravitySupine = NiPoint3(gravitySupineX, gravitySupineY, gravitySupineZ) * gravityRatio;
+
+    return varGravitySupine;
+}
+
 void Thing::StoreOriginalTransforms(Actor* actor)
 {
     // Save the bones' original local values, per actor, if they already haven't
@@ -388,7 +421,7 @@ void Thing::UpdateThing(Actor* actor)
         time = clock();
         return;
     }
-    
+
     // Rotation for transforming gravityBias back to world coordinates
     auto newRotation = obj->m_parent->m_worldTransform.rot * origWorldRot.Transpose();
 
@@ -478,8 +511,6 @@ void Thing::UpdateThing(Actor* actor)
 
     beforeLocalDiff = beforeLocalDiff - localDiff;
 
-    auto linearSpreadForce = 0.75;
-
     localDiff.x += (beforeLocalDiff.y * linearSpreadforceY) + (beforeLocalDiff.z * linearSpreadforceZ);
     localDiff.y += (beforeLocalDiff.x * linearSpreadforceX) + (beforeLocalDiff.z * linearSpreadforceZ);
     localDiff.z += (beforeLocalDiff.x * linearSpreadforceX) + (beforeLocalDiff.y * linearSpreadforceY);
@@ -496,33 +527,7 @@ void Thing::UpdateThing(Actor* actor)
     // Store a copy of localDiff for later for transforming rotation motions
     auto rotDiff = localDiff;
 
-
-    if (IsBreastBone) //other bones don't need to edited gravity by SPINE2 obj
-    {
-        //Get the reference bone to know which way the breasts are orientated
-        //thing_ReadNode_lock.lock();
-        BSFixedString chest_str("Chest");
-
-        NiAVObject* breastGravityReferenceBone = actor->unkF0->rootNode->GetObjectByName(&chest_str);
-
-        //thing_ReadNode_lock.unlock();
-
-        float gravityRatio = 0.0f;
-        if (breastGravityReferenceBone != nullptr)
-        {
-            //auto breastRot = breastGravityReferenceBone->m_worldTransform.rot;
-            //Get the orientation (here the Z element of the rotation matrix (approx 1.0 when standing up, approx -1.0 when upside down))
-            auto chestOrientation = breastGravityReferenceBone->m_worldTransform.rot.data[1][2];
-            gravityRatio = chestOrientation >= 0.0 ? chestOrientation : 0.0;
-        }
-
-        varGravitySupine = NiPoint3(gravitySupineX, gravitySupineY, gravitySupineZ) * gravityRatio;
-    }
-    else
-    {
-        //other nodes are based on parent obj
-        varGravitySupine = NiPoint3(0.0, 0.0, 0.0);
-    }
+    auto varGravitySupine = CalculateGravitySupine(actor);
 
     // Transform localDiff to world coordinates
     localDiff = skeletonObj->m_localTransform.rot.Transpose() * localDiff;

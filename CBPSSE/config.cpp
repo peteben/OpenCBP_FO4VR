@@ -4,6 +4,7 @@
 #include "SimObj.h"
 #include "Thing.h"
 
+#include <algorithm>
 #include <iostream>
 #include <iterator>
 #include <set>
@@ -29,7 +30,10 @@ bool useWhitelist = false;
 config_t config;
 std::map<UInt32, armorOverrideData> configArmorOverrideMap;
 std::unordered_set<UInt32> usedSlots;
+concurrency::concurrent_unordered_map<UInt32, actorOverrideData> configActorOverrideMap;
 std::map<std::multiset<UInt64>, config_t> cachedConfigs;
+std::unordered_map<std::string, UInt32> priorityNameMappings;
+std::set<UInt32> priorities;
 
 // TODO data structure these
 whitelist_t whitelist;
@@ -99,7 +103,6 @@ bool LoadConfig()
     config_t configOverrides;
     std::map<UInt32, config_t> configArmorBoneOverrides;
     std::set<std::string> bonesSet;
-    std::unordered_map<std::string, UInt32> priorityNameMappings;
 
     bool reloadActors = false;
     auto playerOnlyOld = playerOnly;
@@ -195,6 +198,9 @@ bool LoadConfig()
 
         auto armorStr = std::string("Armor.");
         auto splitArmorStr = std::mismatch(armorStr.begin(), armorStr.end(), sectionsIter->begin());
+
+        auto actorStr = std::string("Actor.");
+        auto splitActorStr = std::mismatch(actorStr.begin(), actorStr.end(), sectionsIter->begin());
 
         if (*sectionsIter == std::string("Attach"))
         {
@@ -333,13 +339,59 @@ bool LoadConfig()
                     continue;
                 }
 
-                auto formID = GetFormIDFromString(valuesIter.second);
-                if (formID == -1)
+                auto formID = std::stoul(valuesIter.second, nullptr, 16);
+
+                configArmorOverrideMap[armorPriority].armors.emplace(formID);
+            }
+        }
+        else if (splitActorStr.first == actorStr.end())
+        {
+            auto actorSubname = std::string(splitActorStr.second, sectionsIter->end());
+
+            UInt32 actorPriority;
+            auto mapEntry = priorityNameMappings.find(actorSubname);
+            if (mapEntry != priorityNameMappings.end())
+            {
+                actorPriority = mapEntry->second;
+            }
+            else
+            {
+                std::string priorityMapping = configReader.Get("Priority", actorSubname, "");
+                try
+                {
+                    actorPriority = std::stoul(priorityMapping);
+                }
+                catch (const std::exception&)
                 {
                     continue;
                 }
 
-                configArmorOverrideMap[armorPriority].armors.emplace(formID);
+                priorityNameMappings[actorSubname] = actorPriority;
+            }
+
+            configActorOverrideMap[actorPriority].isFilterInverted = configReader.GetBoolean(*sectionsIter, "invertFilter", false);
+
+            // Get section contents
+            auto sectionMap = configReader.Section(*sectionsIter);
+            for (auto& valuesIter : sectionMap)
+            {
+                auto& key = valuesIter.first;
+                if (key == "invertFilter")
+                {
+                    continue;
+                }
+
+                UInt32 refID;
+                try
+                {
+                    refID = std::stoul(valuesIter.second);
+                }
+                catch (const std::exception&)
+                {
+                    continue;
+                }
+
+                configActorOverrideMap[actorPriority].actors.emplace(refID);
             }
         }
         else if (*sectionsIter == std::string("Whitelist") && useWhitelist)
@@ -477,6 +529,11 @@ bool LoadConfig()
                 configArmorOverrideMap[0].config[boneName];
             }
         }
+    }
+
+    for (auto map : priorityNameMappings)
+    {
+        priorities.insert(map.second);
     }
 
     logger.Error("Finished CBP Config\n");

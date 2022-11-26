@@ -49,6 +49,22 @@ NiAVObject* actorUtils::GetBaseSkeleton(Actor* actor)
     return obj;
 }
 
+bool actorUtils::IsActorPriorityBlacklisted(Actor* actor, UInt32 priority)
+{
+    bool result = false;
+    auto actorOverrideConfigEntry = configActorOverrideMap[priority];
+    auto isFilterInverted = configActorOverrideMap[priority].isFilterInverted;
+    auto overrideActors = actorOverrideConfigEntry.actors;
+
+    if (!isFilterInverted)
+    {
+        // Result is in the blacklist
+        result = !(overrideActors.find(actor->formID) == overrideActors.end());
+    }
+
+    return result;
+}
+
 bool actorUtils::IsActorMale(Actor* actor)
 {
     if (!IsActorValid(actor))
@@ -65,6 +81,21 @@ bool actorUtils::IsActorMale(Actor* actor)
         return true;
     else
         return false;
+}
+
+bool actorUtils::IsActorPriorityWhitelisted(Actor* actor, UInt32 priority)
+{
+    bool result = false;
+    auto actorOverrideConfigEntry = configActorOverrideMap[priority];
+    auto isFilterInverted = configActorOverrideMap[priority].isFilterInverted;
+    auto overrideActors = actorOverrideConfigEntry.actors;
+
+    if (isFilterInverted)
+    {
+        // Result is in the whitelist
+        result = !(overrideActors.find(actor->formID) == overrideActors.end());
+    }
+    return result;
 }
 
 bool actorUtils::IsActorInPowerArmor(Actor* actor)
@@ -190,6 +221,9 @@ config_t actorUtils::BuildConfigForActor(Actor* actor)
 {
     std::multiset<UInt64> key;
 
+    // key always starts with actors formID (really the refID)
+    key.emplace((UInt64)actor->formID);
+
     for (auto slot : usedSlots)
     {
         // Check if actor has config's slot equipped
@@ -221,75 +255,131 @@ config_t actorUtils::BuildConfigForActor(Actor* actor)
 
     // Otherwise, build the actor's config
     config_t baseConfig = config;
-    for (auto overrideConfigIter = configArmorOverrideMap.rbegin(); overrideConfigIter != configArmorOverrideMap.rend(); ++overrideConfigIter)
+
+    for (auto priIter = priorities.rbegin(); priIter != priorities.rend(); ++priIter)
     {
-        auto orData = overrideConfigIter->second;
+        UInt32 priority = *priIter;
 
-        std::vector<actorUtils::EquippedArmor> equippedList;
-
-        // Make a list of actor's slots that are config's slots
-        for (auto slot : orData.slots)
+        // Check if there is no armor slot override entry
+        if (configArmorOverrideMap.find(priority) == configArmorOverrideMap.end())
         {
-            EquippedArmor equipped = actorUtils::GetActorEquippedArmor(actor, slot);
-            if (equipped.armor && equipped.model)
+            auto overrideConfig = configActorOverrideMap[priority].config;
+
+            if (IsActorPriorityWhitelisted(actor, priority))
             {
-                equippedList.push_back(equipped);
+                for (auto val : overrideConfig)
+                {
+                    // for each bone, if it is empty, we need to disable it,
+                    // otherwise the configEntry is good.
+                    if (overrideConfig[val.first].empty())
+                    {
+                        // This is ok because we're doing this to a premade copy sequentially
+                        baseConfig.unsafe_erase(val.first);
+                    }
+                    else
+                    {
+                        baseConfig[val.first] = val.second;
+                    }
+                }
+            }
+            if (!IsActorPriorityBlacklisted(actor, priority))
+            {
+                for (auto val : overrideConfig)
+                {
+                    // for each bone, if it is empty, we need to disable it,
+                    // otherwise the configEntry is good.
+                    if (overrideConfig[val.first].empty())
+                    {
+                        // This is ok because we're doing this to a premade copy sequentially
+                        baseConfig.unsafe_erase(val.first);
+                    }
+                    else
+                    {
+                        baseConfig[val.first] = val.second;
+                    }
+                }
             }
         }
-
-
-        auto armorFormID = orData.armors.begin();
-        // whitelist filter
-        if (orData.isFilterInverted)
+        else // There is an armor slot override entry
         {
-            for (; armorFormID != orData.armors.end(); ++armorFormID)
+            // If priority level has an entry in actor override map AND 
+            // actor is not whitelisted or is blacklisted, continue on
+            if (configActorOverrideMap.find(priority) == configActorOverrideMap.end())
             {
-                bool breakOutside = false;
-                //  Check config's filter IDs against found slot's IDs 
-                for (auto equipped : equippedList)
+                if (!IsActorPriorityWhitelisted(actor, priority) ||
+                    IsActorPriorityBlacklisted(actor, priority))
                 {
-                    if (*armorFormID == equipped.armor->formID || *armorFormID == equipped.model->formID)
-                    {
-                        for (auto val : orData.config)
-                        {
-                            // for each bone, if it is empty, we need to disable it,
-                            // otherwise the configEntry is good.
-                            if (orData.config[val.first].empty())
-                            {
-                                // This is ok because we're doing this to a premade copy sequentially
-                                baseConfig.unsafe_erase(val.first);
-                            }
-                            else
-                            {
-                                baseConfig[val.first] = val.second;
-                            }
-                        }
+                    continue;
+                }
+            }
 
-                        breakOutside = true;
+            auto orData = configArmorOverrideMap[priority];
+
+            std::vector<actorUtils::EquippedArmor> equippedList;
+
+            // Make a list of actor's slots that are config's slots
+            for (auto slot : orData.slots)
+            {
+                EquippedArmor equipped = actorUtils::GetActorEquippedArmor(actor, slot);
+                if (equipped.armor && equipped.model)
+                {
+                    equippedList.push_back(equipped);
+                }
+            }
+
+            auto armorFormID = orData.armors.begin();
+            // whitelist filter
+            if (orData.isFilterInverted)
+            {
+                for (; armorFormID != orData.armors.end(); ++armorFormID)
+                {
+                    bool breakOutside = false;
+                    //  Check config's filter IDs against found slot's IDs 
+                    for (auto equipped : equippedList)
+                    {
+                        if (*armorFormID == equipped.armor->formID || *armorFormID == equipped.model->formID)
+                        {
+                            for (auto val : orData.config)
+                            {
+                                // for each bone, if it is empty, we need to disable it,
+                                // otherwise the configEntry is good.
+                                if (orData.config[val.first].empty())
+                                {
+                                    // This is ok because we're doing this to a premade copy sequentially
+                                    baseConfig.unsafe_erase(val.first);
+                                }
+                                else
+                                {
+                                    baseConfig[val.first] = val.second;
+                                }
+                            }
+
+                            breakOutside = true;
+                            break;
+                        }
+                    }
+
+                    if (breakOutside)
+                    {
                         break;
                     }
                 }
-
-                if (breakOutside)
-                {
-                    break;
-                }
             }
-        }
 
-        // blacklist filter
-        if (!orData.isFilterInverted && armorFormID == orData.armors.end() && !equippedList.empty())
-        {
-            for (auto val : orData.config)
+            // blacklist filter
+            if (!orData.isFilterInverted && armorFormID == orData.armors.end() && !equippedList.empty())
             {
-                if (orData.config[val.first].empty())
+                for (auto val : orData.config)
                 {
-                    // This is ok because we're doing this to a premade copy sequentially
-                    baseConfig.unsafe_erase(val.first);
-                }
-                else
-                {
-                    baseConfig[val.first] = val.second;
+                    if (orData.config[val.first].empty())
+                    {
+                        // This is ok because we're doing this to a premade copy sequentially
+                        baseConfig.unsafe_erase(val.first);
+                    }
+                    else
+                    {
+                        baseConfig[val.first] = val.second;
+                    }
                 }
             }
         }

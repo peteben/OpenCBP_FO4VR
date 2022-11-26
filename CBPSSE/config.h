@@ -32,6 +32,13 @@ struct armorOverrideData
     config_t config;
 };
 
+struct actorOverrideData
+{
+    bool isFilterInverted;
+    std::unordered_set<UInt32> actors;
+    config_t config;
+};
+
 extern bool playerOnly;
 extern bool femaleOnly;
 extern bool maleOnly;
@@ -45,6 +52,8 @@ extern whitelist_t whitelist;
 extern std::vector<std::string> raceWhitelist;
 extern std::unordered_set<UInt32> usedSlots;
 extern std::map<std::multiset<UInt64>, config_t> cachedConfigs;
+extern std::set<UInt32> priorities;
+extern concurrency::concurrent_unordered_map<UInt32, actorOverrideData> configActorOverrideMap;
 
 bool LoadConfig();
 void DumpWhitelistToLog();
