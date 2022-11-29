@@ -262,6 +262,7 @@ bool LoadConfig()
                     // "Touch" the map to add empty entry for bone in config_t to signal deletion later when building config from overrides
                     // This allows for disabling specific disabling attach configs
                     configArmorOverrideMap[attachPriority].config[boneName];
+                    configActorOverrideMap[attachPriority].config[boneName];
                 }
                 else if (sections.find(attachName) != sections.end())
                 {
@@ -271,6 +272,7 @@ bool LoadConfig()
                     {
                         auto& keyName = attachIter.first;
                         configArmorOverrideMap[attachPriority].config[boneName][keyName] = configReader.GetFloat(attachName, keyName, 0.0);
+                        configActorOverrideMap[attachPriority].config[boneName][keyName] = configReader.GetFloat(attachName, keyName, 0.0);
                     }
                 }
             }
@@ -339,7 +341,11 @@ bool LoadConfig()
                     continue;
                 }
 
-                auto formID = std::stoul(valuesIter.second, nullptr, 16);
+                auto formID = GetFormIDFromString(valuesIter.second);
+                if (formID == -1)
+                {
+                    continue;
+                }
 
                 configArmorOverrideMap[armorPriority].armors.emplace(formID);
             }
@@ -381,12 +387,10 @@ bool LoadConfig()
                     continue;
                 }
 
-                UInt32 refID;
-                try
-                {
-                    refID = std::stoul(valuesIter.second);
-                }
-                catch (const std::exception&)
+                auto refID = GetFormIDFromString(valuesIter.second);
+
+                logger.Info("refID %s\n", valuesIter.second);
+                if (refID == -1)
                 {
                     continue;
                 }
@@ -512,6 +516,14 @@ bool LoadConfig()
                     configArmorOverrideMap[conf.first].config[boneIter.first][settingIter.first] = settingIter.second;
                 }
             }
+
+            if (configActorOverrideMap[conf.first].config.count(boneIter.first) > 0)
+            {
+                for (auto settingIter : boneIter.second)
+                {
+                    configActorOverrideMap[conf.first].config[boneIter.first][settingIter.first] = settingIter.second;
+                }
+            }
         }
     }
 
@@ -528,6 +540,11 @@ bool LoadConfig()
             {
                 configArmorOverrideMap[0].config[boneName];
             }
+
+            if (configActorOverrideMap[0].config.find(boneName) == configActorOverrideMap[0].config.end())
+            {
+                configActorOverrideMap[0].config[boneName];
+            }
         }
     }
 
@@ -535,6 +552,8 @@ bool LoadConfig()
     {
         priorities.insert(map.second);
     }
+
+    DumpConfigToLog();
 
     logger.Error("Finished CBP Config\n");
     return reloadActors;
@@ -556,7 +575,7 @@ void DumpConfigToLog()
     logger.Info("***** ConfigArmorOverride Dump *****\n");
     for (auto conf : configArmorOverrideMap)
     {
-        logger.Info("** Slot-Armor Map priority %ul **\n", conf.first);
+        logger.Info("** Slot-Armor Map priority %d **\n", conf.first);
         logger.Info("[Slots]\n");
         for (auto slot : conf.second.slots)
         {
@@ -567,7 +586,27 @@ void DumpConfigToLog()
         {
             logger.Info("%ul\n", formID);
         }
-        logger.Info("** Config priority %ul **\n", conf.first);
+        logger.Info("** Config priority %d **\n", conf.first);
+        for (auto section : conf.second.config)
+        {
+            logger.Info("[%s]\n", section.first.c_str());
+            for (auto setting : section.second)
+            {
+                logger.Info("%s=%f\n", setting.first.c_str(), setting.second);
+            }
+        }
+    }
+
+    logger.Info("***** ConfigActorOverride Dump *****\n");
+    for (auto conf : configActorOverrideMap)
+    {
+        logger.Info("** Slot-Actor Map priority %d **\n", conf.first);
+        logger.Info("[Actor]\n");
+        for (auto formID : conf.second.actors)
+        {
+            logger.Info("%d\n", formID);
+        }
+        logger.Info("** Config priority %d **\n", conf.first);
         for (auto section : conf.second.config)
         {
             logger.Info("[%s]\n", section.first.c_str());
