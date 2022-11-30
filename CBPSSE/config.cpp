@@ -389,7 +389,6 @@ bool LoadConfig()
 
                 auto refID = GetFormIDFromString(valuesIter.second);
 
-                logger.Info("refID %s\n", valuesIter.second);
                 if (refID == -1)
                 {
                     continue;
@@ -553,7 +552,9 @@ bool LoadConfig()
         priorities.insert(map.second);
     }
 
+#if DEBUG
     DumpConfigToLog();
+#endif
 
     logger.Error("Finished CBP Config\n");
     return reloadActors;

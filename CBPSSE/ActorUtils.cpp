@@ -51,9 +51,9 @@ NiAVObject* actorUtils::GetBaseSkeleton(Actor* actor)
 
 bool actorUtils::IsActorPriorityBlacklisted(Actor* actor, UInt32 priority)
 {
-    bool result = false;
-    auto actorOverrideConfigEntry = configActorOverrideMap[priority];
     auto isFilterInverted = configActorOverrideMap[priority].isFilterInverted;
+    bool result = true;
+    auto actorOverrideConfigEntry = configActorOverrideMap[priority];
     auto overrideActors = actorOverrideConfigEntry.actors;
 
     if (!isFilterInverted)
@@ -261,12 +261,15 @@ config_t actorUtils::BuildConfigForActor(Actor* actor)
         UInt32 priority = *priIter;
 
         // Check if there is no armor slot override entry
-        if (configArmorOverrideMap.find(priority) == configArmorOverrideMap.end())
+        if (configArmorOverrideMap.find(priority) == configArmorOverrideMap.end()
+            || (configArmorOverrideMap[priority].armors.empty()
+                && configArmorOverrideMap[priority].slots.empty()))
         {
             auto overrideConfig = configActorOverrideMap[priority].config;
 
             if (IsActorPriorityWhitelisted(actor, priority))
             {
+                logger.Info("%s: actor %08x is actor whitelisted\n", __func__, actor->formID);
                 for (auto val : overrideConfig)
                 {
                     // for each bone, if it is empty, we need to disable it,
@@ -282,8 +285,9 @@ config_t actorUtils::BuildConfigForActor(Actor* actor)
                     }
                 }
             }
-            if (!IsActorPriorityBlacklisted(actor, priority))
+            else if (!IsActorPriorityBlacklisted(actor, priority))
             {
+                logger.Info("%s: actor %08x is not actor blacklisted\n", __func__, actor->formID);
                 for (auto val : overrideConfig)
                 {
                     // for each bone, if it is empty, we need to disable it,
@@ -298,17 +302,22 @@ config_t actorUtils::BuildConfigForActor(Actor* actor)
                         baseConfig[val.first] = val.second;
                     }
                 }
+            }
+            else
+            {
+                logger.Info("%s: actor %08x is not filtered for priority %d\n", __func__, actor->formID, priority);
             }
         }
         else // There is an armor slot override entry
         {
             // If priority level has an entry in actor override map AND 
             // actor is not whitelisted or is blacklisted, continue on
-            if (configActorOverrideMap.find(priority) == configActorOverrideMap.end())
+            if (configActorOverrideMap.find(priority) != configActorOverrideMap.end())
             {
                 if (!IsActorPriorityWhitelisted(actor, priority) ||
                     IsActorPriorityBlacklisted(actor, priority))
                 {
+                    logger.Info("%s: actor %08x is filtered from armors\n", __func__, actor->formID);
                     continue;
                 }
             }
@@ -331,6 +340,7 @@ config_t actorUtils::BuildConfigForActor(Actor* actor)
             // whitelist filter
             if (orData.isFilterInverted)
             {
+                logger.Info("%s: actor %08x is armor whitelisted\n", __func__, actor->formID);
                 for (; armorFormID != orData.armors.end(); ++armorFormID)
                 {
                     bool breakOutside = false;
@@ -369,6 +379,7 @@ config_t actorUtils::BuildConfigForActor(Actor* actor)
             // blacklist filter
             if (!orData.isFilterInverted && armorFormID == orData.armors.end() && !equippedList.empty())
             {
+                logger.Info("%s: actor %08x is armor blacklisted\n", __func__, actor->formID);
                 for (auto val : orData.config)
                 {
                     if (orData.config[val.first].empty())
