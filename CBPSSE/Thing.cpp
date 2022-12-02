@@ -38,6 +38,8 @@ Thing::Thing(NiAVObject* obj, BSFixedString& name, Actor* actor)
     , m_actor(actor)
 {
 
+    isEnabled = true;
+
     auto skeletonObj = actorUtils::GetBaseSkeleton(actor);
     if (skeletonObj == NULL)
     {

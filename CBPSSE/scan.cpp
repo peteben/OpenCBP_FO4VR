@@ -215,8 +215,10 @@ void UpdateActors()
             else
             {
                 auto& simObj = actorsIterator->second;
+                auto& composedConfig = BuildConfigForActor(a.actor);
+
                 simObj.AddBonesToThings(a.actor, boneNames);
-                simObj.UpdateConfigs(config);
+                simObj.UpdateConfigs(composedConfig);
             }
         }
 

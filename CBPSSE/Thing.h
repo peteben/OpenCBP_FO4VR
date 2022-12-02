@@ -46,6 +46,8 @@ class Thing
     Actor* m_actor;
 
 public:
+    bool isEnabled;
+
     float stiffness = 0.5f;
     float stiffness2 = 0.0f;
     float damping = 0.2f;

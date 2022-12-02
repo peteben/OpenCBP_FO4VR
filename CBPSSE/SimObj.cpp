@@ -135,7 +135,10 @@ void SimObj::Update(Actor* actor)
             !IsActorInPowerArmor(actor) &&
             NULL != GetBaseSkeleton(actor))
         {
-            t.second.UpdateThing(actor);
+            if (t.second.isEnabled)
+            {
+                t.second.UpdateThing(actor);
+            }
         }
     }
 }
@@ -147,7 +150,16 @@ bool SimObj::UpdateConfigs(config_t& config)
     concurrency::parallel_for_each(things.begin(), things.end(), [&](auto& thing)
         {
             //logger.Info("%s: Updating config for Thing %s\n", __func__, thing.first.c_str());
-            thing.second.UpdateConfig(config[std::string(thing.first)]);
+
+            if (config.count(thing.first) > 0)
+            {
+                thing.second.UpdateConfig(config[thing.first]);
+                thing.second.isEnabled = true;
+            }
+            else
+            {
+                thing.second.isEnabled = false;
+            }
         });
     return true;
 }
