@@ -22,7 +22,7 @@ struct whitelistSex
 
 typedef concurrency::concurrent_unordered_map<std::string, float> configEntry_t; // Map settings for a particular bone
 typedef concurrency::concurrent_unordered_map<std::string, configEntry_t> config_t; // Settings for a set of bones
-typedef std::unordered_map<std::string, std::unordered_map<std::string, whitelistSex>> whitelist_t;
+typedef concurrency::concurrent_unordered_map<std::string, std::unordered_map<std::string, whitelistSex>> whitelist_t;
 
 struct armorOverrideData
 {
@@ -47,13 +47,13 @@ extern bool useWhitelist;
 
 extern int configReloadCount;
 extern config_t config;
-extern std::map<UInt32, armorOverrideData> configArmorOverrideMap;
+extern concurrency::concurrent_unordered_map<UInt32, armorOverrideData> configArmorOverrideMap;
+extern concurrency::concurrent_unordered_map<UInt32, actorOverrideData> configActorOverrideMap;
 extern whitelist_t whitelist;
 extern std::vector<std::string> raceWhitelist;
 extern std::unordered_set<UInt32> usedSlots;
 extern std::map<std::multiset<UInt64>, config_t> cachedConfigs;
 extern std::set<UInt32> priorities;
-extern concurrency::concurrent_unordered_map<UInt32, actorOverrideData> configActorOverrideMap;
 
 bool LoadConfig();
 void DumpWhitelistToLog();

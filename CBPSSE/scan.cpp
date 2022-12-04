@@ -231,38 +231,38 @@ void UpdateActors()
     }
 
     //logger.error("Updating %d entities\n", actorEntries.size());
-    for (auto& a : actorEntries)
-    {
-        auto actorsIterator = actors.find(a.id);
-        if (actorsIterator == actors.end())
+    concurrency::parallel_for_each(actorEntries.begin(), actorEntries.end(), [&](const auto& a)
         {
-            //logger.error("Sim Object not found in tracked actors\n");
-        }
-        else
-        {
-            auto& simObj = actorsIterator->second;
-
-            auto& composedConfig = BuildConfigForActor(a.actor);
-
-            SimObj::Gender gender = IsActorMale(a.actor) ? SimObj::Gender::Male : SimObj::Gender::Female;
-
-            // Pointer comparison is good enough?
-            // OR check if gender and/or race have changed
-            if (simObj.IsBound())
+            auto actorsIterator = actors.find(a.id);
+            if (actorsIterator == actors.end())
             {
-                if (gender != simObj.GetGender() ||
-                    GetActorRaceEID(a.actor) != simObj.GetRaceEID())
-                {
-                    logger.Info("%s: Reset sim object\n", __func__);
-                    simObj.Reset();
-                }
+                //logger.error("Sim Object not found in tracked actors\n");
             }
             else
             {
-                simObj.Bind(a.actor, boneNames, composedConfig);
+                auto& simObj = actorsIterator->second;
+
+                auto& composedConfig = BuildConfigForActor(a.actor);
+
+                SimObj::Gender gender = IsActorMale(a.actor) ? SimObj::Gender::Male : SimObj::Gender::Female;
+
+                // Pointer comparison is good enough?
+                // OR check if gender and/or race have changed
+                if (simObj.IsBound())
+                {
+                    if (gender != simObj.GetGender() ||
+                        GetActorRaceEID(a.actor) != simObj.GetRaceEID())
+                    {
+                        logger.Info("%s: Reset sim object\n", __func__);
+                        simObj.Reset();
+                    }
+                }
+                else
+                {
+                    simObj.Bind(a.actor, boneNames, composedConfig);
+                }
             }
-        }
-    }
+        });
 
     concurrency::parallel_for_each(actorEntries.begin(), actorEntries.end(), [&](const auto& a)
         {
@@ -277,6 +277,9 @@ void UpdateActors()
 
                 if (simObj.IsBound())
                 {
+                    auto& composedConfig = BuildConfigForActor(a.actor);
+
+                    simObj.UpdateConfigs(composedConfig);
                     simObj.Update(a.actor);
                 }
             }

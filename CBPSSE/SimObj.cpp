@@ -146,7 +146,6 @@ void SimObj::Update(Actor* actor)
 bool SimObj::UpdateConfigs(config_t& config)
 {
     logger.Error("%s\n", __func__);
-    // TODO does this need parallelization?
     concurrency::parallel_for_each(things.begin(), things.end(), [&](auto& thing)
         {
             //logger.Info("%s: Updating config for Thing %s\n", __func__, thing.first.c_str());

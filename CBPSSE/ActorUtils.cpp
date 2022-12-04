@@ -162,9 +162,11 @@ bool actorUtils::IsBoneInWhitelist(Actor* actor, std::string boneName)
     }
     bool result;
     auto raceEID = actorUtils::GetActorRaceEID(actor);
-    if (whitelist.find(boneName) != whitelist.end())
+    auto whitelist_bone = whitelist.find(boneName);
+    if (whitelist_bone != whitelist.end())
     {
-        auto racesMap = whitelist.at(boneName);
+        auto racesMap = whitelist_bone->second;
+
         if (racesMap.find(raceEID) != racesMap.end())
         {
             if (IsActorMale(actor))
@@ -312,7 +314,7 @@ config_t actorUtils::BuildConfigForActor(Actor* actor)
         {
             // If priority level has an entry in actor override map AND 
             // actor is not whitelisted or is blacklisted, continue on
-            if (configActorOverrideMap.find(priority) != configActorOverrideMap.end())
+            if (configActorOverrideMap.count(priority) > 0)
             {
                 if (!IsActorPriorityWhitelisted(actor, priority) ||
                     IsActorPriorityBlacklisted(actor, priority))
