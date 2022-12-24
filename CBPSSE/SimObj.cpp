@@ -1,3 +1,5 @@
+#pragma warning(disable : 5040)
+
 #include "f4se/NiNodes.h"
 #include "f4se/GameForms.h"
 #include "f4se/GameRTTI.h"
@@ -11,6 +13,7 @@
 using actorUtils::GetBaseSkeleton;
 using actorUtils::IsBoneInWhitelist;
 using actorUtils::IsActorInPowerArmor;
+using papyrusOCBP::boneIgnores;
 
 // Note we don't ref count the nodes becasue it's ignored when the Actor is deleted, and calling Release after that can corrupt memory
 std::vector<std::string> boneNames;
@@ -92,6 +95,11 @@ bool SimObj::Bind(Actor* actor, std::vector<std::string>& boneNames, config_t& c
     return false;
 }
 
+UInt64 SimObj::GetActorKey()
+{
+    return currentActorKey;
+}
+
 SimObj::Gender SimObj::GetGender()
 {
     return gender;
@@ -108,22 +116,33 @@ void SimObj::Reset()
     things.clear();
 }
 
+void SimObj::SetActorKey(UInt64 key)
+{
+    currentActorKey = key;
+}
+
 void SimObj::Update(Actor* actor)
 {
-    if (!bound)
+    if (!bound ||
+        IsActorInPowerArmor(actor) ||
+        NULL == GetBaseSkeleton(actor))
+    {
         return;
+    }
 
+    //concurrency::parallel_for_each(things.begin(), things.end(), [&](auto& t)
+    //{
     for (auto& t : things)
     {
-        //logger.Info("SimObj update: doing thing %s\n", t.first.c_str());
-
         // Might be a better way to do this
-        if (boneIgnores.find(actor->formID) != boneIgnores.end())
+        auto actorBoneMapIter = boneIgnores.find(actor->formID);
+        if (actorBoneMapIter != boneIgnores.end())
         {
-            auto actorBoneMap = boneIgnores.at(actor->formID);
-            if (actorBoneMap.find(t.first) != actorBoneMap.end())
+            auto & actorBoneMap = actorBoneMapIter->second;
+            auto boneDisabledIter = actorBoneMap.find(t.first);
+            if (boneDisabledIter != actorBoneMap.end())
             {
-                if (actorBoneMap.at(t.first))
+                if (true == boneDisabledIter->second)
                 {
                     continue;
                 }
@@ -131,9 +150,7 @@ void SimObj::Update(Actor* actor)
         }
 
         if (!useWhitelist ||
-            (IsBoneInWhitelist(actor, t.first) && useWhitelist) &&
-            !IsActorInPowerArmor(actor) &&
-            NULL != GetBaseSkeleton(actor))
+            (IsBoneInWhitelist(actor, t.first) && useWhitelist))
         {
             if (t.second.isEnabled)
             {
@@ -141,24 +158,27 @@ void SimObj::Update(Actor* actor)
             }
         }
     }
+    //});
 }
 
 bool SimObj::UpdateConfigs(config_t& config)
 {
-    logger.Error("%s\n", __func__);
-    concurrency::parallel_for_each(things.begin(), things.end(), [&](auto& thing)
-        {
-            //logger.Info("%s: Updating config for Thing %s\n", __func__, thing.first.c_str());
+    for (auto & thing : things)
+    {
+        //concurrency::parallel_for_each(things.begin(), things.end(), [&](auto& thing)
+        //    {
+                //logger.Info("%s: Updating config for Thing %s\n", __func__, thing.first.c_str());
 
-            if (config.count(thing.first) > 0)
-            {
-                thing.second.UpdateConfig(config[thing.first]);
-                thing.second.isEnabled = true;
-            }
-            else
-            {
-                thing.second.isEnabled = false;
-            }
-        });
+        if (config.count(thing.first) > 0)
+        {
+            thing.second.UpdateConfig(config[thing.first]);
+            thing.second.isEnabled = true;
+        }
+        else
+        {
+            thing.second.isEnabled = false;
+        }
+        //});
+    }
     return true;
 }

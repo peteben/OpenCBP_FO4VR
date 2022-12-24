@@ -93,6 +93,9 @@
     <ClInclude Include="..\f4se\f4se\GameUtilities.h">
       <Filter>Header Files\api</Filter>
     </ClInclude>
+    <ClInclude Include="unordered_dense.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="log.cpp">

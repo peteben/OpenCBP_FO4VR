@@ -1,5 +1,9 @@
 #pragma once
+#pragma warning(disable : 5040)
+
 #define DEBUG
+
+//#define SIMPLE_BENCHMARK
 
 #include <cstdlib>
 #include <cstdio>
@@ -20,7 +24,6 @@
 #include <functional>
 
 #include <unordered_set>
-#include <unordered_map>
 
 #include <concurrent_unordered_map.h>
 #include <concurrent_vector.h>
@@ -49,12 +52,21 @@
 using actorUtils::IsActorMale;
 using actorUtils::IsActorTrackable;
 using actorUtils::IsActorValid;
+using actorUtils::BuildActorKey;
 using actorUtils::BuildConfigForActor;
 using actorUtils::GetActorRaceEID;
 
 std::atomic<TESObjectCELL*> currCell = nullptr;
 
 extern F4SETaskInterface* g_task;
+
+#ifdef SIMPLE_BENCHMARK
+bool firsttimeloginit = true;
+LARGE_INTEGER startingTime, endingTime, elapsedMicroseconds;
+LARGE_INTEGER frequency;
+LARGE_INTEGER totaltime;
+int debugtimelog_framecount = 1;
+#endif
 
 //void UpdateWorldDataToChild(NiAVObject)
 void DumpTransform(NiTransform t)
@@ -130,6 +142,18 @@ TESObjectCELL* curCell = nullptr;
 
 void UpdateActors()
 {
+#ifdef SIMPLE_BENCHMARK
+    if (firsttimeloginit)
+    {
+        firsttimeloginit = false;
+        totaltime.QuadPart = 0;
+
+    }
+
+    QueryPerformanceFrequency(&frequency);
+    QueryPerformanceCounter(&startingTime);
+#endif
+
     // We scan the cell and build the list every time - only look up things by ID once
     // we retain all state by actor ID, in a map - it's cleared on cell change
     concurrency::concurrent_vector<ActorEntry> actorEntries;
@@ -151,39 +175,37 @@ void UpdateActors()
     else
     {
         // Attempt to get cell's objects
-        concurrency::parallel_for(UInt32(0), cell->objectList.count, [&](UInt32 i)
+        for (UInt32 i = 0; i < cell->objectList.count; i++)
+        {
+            auto ref = cell->objectList[i];
+            if (ref)
             {
-                auto ref = cell->objectList[i];
-                if (ref)
+                // Attempt to get actors
+                auto actor = DYNAMIC_CAST(ref, TESObjectREFR, Actor);
+                if (actor && actor->unkF0)
                 {
-                    // Attempt to get actors
-                    auto actor = DYNAMIC_CAST(ref, TESObjectREFR, Actor);
-                    if (actor && actor->unkF0)
+                    // Find if actors is already being tracked
+                    auto soIt = actors.find(actor->formID);
+                    if (soIt == actors.end() && IsActorTrackable(actor))
                     {
-                        // Find if actors is already being tracked
-                        auto soIt = actors.find(actor->formID);
-                        if (soIt == actors.end() && IsActorTrackable(actor))
-                        {
-                            //logger.Info("Tracking Actor with form ID %08x in cell %ld, race is %s, gender is %d\n", 
-                            //    actor->formID, actor->parentCell->formID,
-                            //    actor->race->editorId.c_str(),
-                            //    IsActorMale(actor));
-                            // Make SimObj and place new element in Things
-                            auto obj = SimObj(actor);
-                            if (IsActorValid(actor))
-                            {
-                                actors.insert(std::make_pair(actor->formID, obj));
-                                actorEntries.push_back(ActorEntry{ actor->formID, actor });
-                            }
-                        }
-                        else if (IsActorValid(actor))
-                        {
-                            actorEntries.push_back(ActorEntry{ actor->formID, actor });
-                        }
+                        //logger.Info("Tracking Actor with form ID %08x in cell %ld, race is %s, gender is %d\n", 
+                        //    actor->formID, actor->parentCell->formID,
+                        //    actor->race->editorId.c_str(),
+                        //    IsActorMale(actor));
+                        // Make SimObj and place new element in Things
+                        auto obj = SimObj(actor);
+                        actors.insert(std::make_pair(actor->formID, obj));
+                        actorEntries.push_back(ActorEntry{ actor->formID, actor });
+                    }
+                    else if (IsActorValid(actor))
+                    {
+                        actorEntries.push_back(ActorEntry{ actor->formID, actor });
                     }
                 }
-            });
+            }
+        }
     }
+
 
     //static bool done = false;
     //if (!done && player->loadedState->node) {
@@ -205,7 +227,7 @@ void UpdateActors()
     {
         count = 0;
         auto reloadActors = LoadConfig();
-        for each (auto & a in actorEntries)
+        for (auto & a : actorEntries)
         {
             auto actorsIterator = actors.find(a.id);
             if (actorsIterator == actors.end())
@@ -215,8 +237,10 @@ void UpdateActors()
             else
             {
                 auto& simObj = actorsIterator->second;
-                auto& composedConfig = BuildConfigForActor(a.actor);
+                auto key = BuildActorKey(a.actor);
+                auto& composedConfig = BuildConfigForActor(a.actor, key);
 
+                simObj.SetActorKey(key);
                 simObj.AddBonesToThings(a.actor, boneNames);
                 simObj.UpdateConfigs(composedConfig);
             }
@@ -230,62 +254,94 @@ void UpdateActors()
         }
     }
 
-    //logger.error("Updating %d entities\n", actorEntries.size());
-    concurrency::parallel_for_each(actorEntries.begin(), actorEntries.end(), [&](const auto& a)
+    for (auto & a : actorEntries)
+    {
+        auto actorsIterator = actors.find(a.id);
+        if (actorsIterator == actors.end())
         {
-            auto actorsIterator = actors.find(a.id);
-            if (actorsIterator == actors.end())
+            //logger.error("Sim Object not found in tracked actors\n");
+        }
+        else
+        {
+            auto& simObj = actorsIterator->second;
+
+            SimObj::Gender gender = IsActorMale(a.actor) ? SimObj::Gender::Male : SimObj::Gender::Female;
+
+            // Check if gender and/or race have changed
+            if (simObj.IsBound())
             {
-                //logger.error("Sim Object not found in tracked actors\n");
+                if (gender != simObj.GetGender() ||
+                    GetActorRaceEID(a.actor) != simObj.GetRaceEID())
+                {
+                    logger.Info("UpdateActors: Reset sim object\n");
+                    simObj.Reset();
+                }
             }
             else
             {
-                auto& simObj = actorsIterator->second;
+                auto key = BuildActorKey(a.actor);
+                auto& composedConfig = BuildConfigForActor(a.actor, key);
 
-                auto& composedConfig = BuildConfigForActor(a.actor);
-
-                SimObj::Gender gender = IsActorMale(a.actor) ? SimObj::Gender::Male : SimObj::Gender::Female;
-
-                // Pointer comparison is good enough?
-                // OR check if gender and/or race have changed
-                if (simObj.IsBound())
-                {
-                    if (gender != simObj.GetGender() ||
-                        GetActorRaceEID(a.actor) != simObj.GetRaceEID())
-                    {
-                        logger.Info("%s: Reset sim object\n", __func__);
-                        simObj.Reset();
-                    }
-                }
-                else
-                {
-                    simObj.Bind(a.actor, boneNames, composedConfig);
-                }
+                logger.Error("UpdateActors: Setting key...\n");
+                simObj.SetActorKey(key);
+                simObj.Bind(a.actor, boneNames, composedConfig);
             }
-        });
+        }
+    }
 
-    concurrency::parallel_for_each(actorEntries.begin(), actorEntries.end(), [&](const auto& a)
+
+    //for (auto & a : actorEntries)
+    //{
+        concurrency::parallel_for_each(actorEntries.begin(), actorEntries.end(), [&](const auto& a)
+            {
+        auto actorsIterator = actors.find(a.id);
+        if (actorsIterator == actors.end())
         {
-            auto actorsIterator = actors.find(a.id);
-            if (actorsIterator == actors.end())
-            {
-                //logger.error("Sim Object not found in tracked actors\n");
-            }
-            else
-            {
-                auto& simObj = actorsIterator->second;
+            //logger.error("Sim Object not found in tracked actors\n");
+        }
+        else
+        {
+            auto& simObj = actorsIterator->second;
 
-                if (simObj.IsBound())
+            if (simObj.IsBound())
+            {
+                UInt64 key = BuildActorKey(a.actor);
+                UInt64 simObjKey = simObj.GetActorKey();
+
+                if (key != simObjKey)
                 {
-                    auto& composedConfig = BuildConfigForActor(a.actor);
-
+                    logger.Error("UpdateActors: Key change detected for actor %08x.\n", a.actor->formID);
+                    simObj.SetActorKey(key);
+                    auto& composedConfig = BuildConfigForActor(a.actor, key);
                     simObj.UpdateConfigs(composedConfig);
-                    simObj.Update(a.actor);
                 }
+                simObj.Update(a.actor);
             }
+        }
         });
+    //}
 
-FAILED:
+
+
+#ifdef SIMPLE_BENCHMARK
+        QueryPerformanceCounter(&endingTime);
+        elapsedMicroseconds.QuadPart = endingTime.QuadPart - startingTime.QuadPart;
+        elapsedMicroseconds.QuadPart *= 1000000000LL;
+        elapsedMicroseconds.QuadPart /= frequency.QuadPart;
+        //long long avg = elapsedMicroseconds.QuadPart / callCount;
+        totaltime.QuadPart += elapsedMicroseconds.QuadPart;
+        //LOG_ERR("Collider Check Call Count: %d - Update Time = %lld ns", callCount, elapsedMicroseconds.QuadPart);
+        if (debugtimelog_framecount % 1000 == 0)
+        {
+            logger.Error("Average Update Time in 1000 frame = %lld ns\n", totaltime.QuadPart / debugtimelog_framecount);
+            totaltime.QuadPart = 0;
+            debugtimelog_framecount = 0;
+            //totalcallcount = 0;
+        }
+        debugtimelog_framecount++;
+#endif
+
+    FAILED:
     return;
 }
 

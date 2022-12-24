@@ -6,10 +6,10 @@
 #include "config.h"
 #include <shared_mutex>
 
-using std::shared_mutex;
+//using std::shared_mutex;
 
-typedef concurrency::concurrent_unordered_map<const char*, std::unordered_map<UInt32, NiPoint3>> pos_map;
-typedef concurrency::concurrent_unordered_map<const char*, std::unordered_map<UInt32, NiMatrix43>> rot_map;
+typedef concurrency::concurrent_unordered_map<const char*, concurrency::concurrent_unordered_map<UInt32, NiPoint3>> pos_map;
+typedef concurrency::concurrent_unordered_map<const char*, concurrency::concurrent_unordered_map<UInt32, NiMatrix43>> rot_map;
 
 inline void RefreshNode(NiAVObject* node)
 {
@@ -100,7 +100,7 @@ public:
     static rot_map origChestWorldRot;
 
     // Maps are sorted every edit time, so if it is parallel processing then a high probability of overloading
-    static shared_mutex thing_map_lock;
+    //static shared_mutex thing_map_lock;
 
     Thing(NiAVObject* obj, BSFixedString& name, Actor* actor);
     ~Thing();

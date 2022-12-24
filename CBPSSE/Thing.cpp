@@ -17,7 +17,7 @@ pos_map Thing::origLocalPos;
 rot_map Thing::origLocalRot;
 rot_map Thing::origChestWorldRot;
 
-shared_mutex Thing::thing_map_lock;
+//shared_mutex Thing::thing_map_lock;
 
 void Thing::ShowPos(NiPoint3& p)
 {
@@ -112,7 +112,7 @@ void Thing::StoreOriginalTransforms(Actor* actor)
 
     auto obj = thingObj;
 
-    thing_map_lock.lock();
+    //thing_map_lock.lock();
     if (IsBreastBone)
     {
         BSFixedString chest_name("Chest");
@@ -185,7 +185,7 @@ void Thing::StoreOriginalTransforms(Actor* actor)
 #endif
         }
     }
-    thing_map_lock.unlock();
+    //thing_map_lock.unlock();
 }
 
 void Thing::UpdateConfig(configEntry_t& centry)
@@ -289,26 +289,26 @@ NiAVObject* Thing::IsThingActorValid(Actor* actor)
 {
     if (!actorUtils::IsActorValid(actor))
     {
-        logger.Error("%s: No valid actor in Thing::Update\n", __func__);
+        //logger.Error("%s: No valid actor in Thing::Update\n", __func__);
         return NULL;
     }
     auto loadedState = actor->unkF0;
     if (!loadedState || !loadedState->rootNode)
     {
-        logger.Error("%s: No loaded state for actor %08x\n", __func__, actor->formID);
+        //logger.Error("%s: No loaded state for actor %08x\n", __func__, actor->formID);
         return NULL;
     }
     auto obj = loadedState->rootNode->GetObjectByName(&boneName);
 
     if (!obj)
     {
-        logger.Error("%s: Couldn't get name for loaded state for actor %08x\n", __func__, actor->formID);
+        //logger.Error("%s: Couldn't get name for loaded state for actor %08x\n", __func__, actor->formID);
         return NULL;
     }
 
     if (!obj->m_parent)
     {
-        logger.Error("%s: Couldn't get bone %s parent for actor %08x\n", __func__, boneName.c_str(), actor->formID);
+        //logger.Error("%s: Couldn't get bone %s parent for actor %08x\n", __func__, boneName.c_str(), actor->formID);
         return NULL;
     }
 

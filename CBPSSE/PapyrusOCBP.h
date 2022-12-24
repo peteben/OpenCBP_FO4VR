@@ -2,15 +2,15 @@
 
 #include "f4se/GameTypes.h"
 #include "f4se/PapyrusVM.h"
-#include <unordered_map>
 #include <string>
+
+#include <concurrent_unordered_map.h>
 
 class VirtualMachine;
 struct StaticFunctionTag;
 
-extern std::unordered_map<UInt32, std::unordered_map<std::string, bool>> boneIgnores; // probably should be moved somewhere else
-
 namespace papyrusOCBP
 {
+    extern concurrency::concurrent_unordered_map<UInt32, concurrency::concurrent_unordered_map<std::string, bool>> boneIgnores;
     void RegisterFuncs(VirtualMachine* vm);
 };

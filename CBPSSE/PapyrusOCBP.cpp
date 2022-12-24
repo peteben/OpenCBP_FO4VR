@@ -1,3 +1,5 @@
+#pragma warning(disable : 5040)
+
 #include "PapyrusOCBP.h"
 
 //#include "f4se/PapyrusVM.h"
@@ -17,10 +19,11 @@
 
 #include "SimObj.h"
 
-std::unordered_map<UInt32, std::unordered_map<std::string, bool>> boneIgnores;
 
 namespace papyrusOCBP
 {
+    concurrency::concurrent_unordered_map<UInt32, concurrency::concurrent_unordered_map<std::string, bool>> boneIgnores;
+
     void SetBoneToggle(StaticFunctionTag*, Actor* actor, bool toggle, BSFixedString boneName)
     {
         boneIgnores[actor->formID][std::string(boneName.c_str())] = toggle;

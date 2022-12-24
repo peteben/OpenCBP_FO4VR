@@ -1,7 +1,9 @@
 #include <algorithm>
+#include <unordered_map>
 
 #include "ActorUtils.h"
 #include "log.h"
+#include "unordered_dense.h"
 
 #include "f4se/GameExtraData.h"
 #include "f4se/GameObjects.h"
@@ -53,8 +55,8 @@ bool actorUtils::IsActorPriorityBlacklisted(Actor* actor, UInt32 priority)
 {
     auto isFilterInverted = configActorOverrideMap[priority].isFilterInverted;
     bool result = true;
-    auto actorOverrideConfigEntry = configActorOverrideMap[priority];
-    auto overrideActors = actorOverrideConfigEntry.actors;
+    auto & actorOverrideConfigEntry = configActorOverrideMap[priority];
+    auto & overrideActors = actorOverrideConfigEntry.actors;
 
     if (!isFilterInverted)
     {
@@ -86,9 +88,9 @@ bool actorUtils::IsActorMale(Actor* actor)
 bool actorUtils::IsActorPriorityWhitelisted(Actor* actor, UInt32 priority)
 {
     bool result = false;
-    auto actorOverrideConfigEntry = configActorOverrideMap[priority];
+    auto& actorOverrideConfigEntry = configActorOverrideMap[priority];
     auto isFilterInverted = configActorOverrideMap[priority].isFilterInverted;
-    auto overrideActors = actorOverrideConfigEntry.actors;
+    auto& overrideActors = actorOverrideConfigEntry.actors;
 
     if (isFilterInverted)
     {
@@ -104,12 +106,12 @@ bool actorUtils::IsActorInPowerArmor(Actor* actor)
     if (!IsActorValid(actor))
     {
         logger.Info("IsActorInPowerArmor: no actor!\n");
-        return true; // will force game to not call Update
+        return true;
     }
     if (!actor->extraDataList)
     {
         logger.Info("IsActorInPowerArmor: no extraDataList!\n");
-        return true; // will force game to not call Update
+        return true;
     }
 
     isInPowerArmor = actor->extraDataList->HasType(kExtraData_PowerArmor);
@@ -145,7 +147,7 @@ bool actorUtils::IsActorValid(Actor* actor)
         logger.Info("%s: actor %x has deleted flag\n", __func__, actor->formID);
         return false;
     }
-    if (actor && actor->unkF0 && actor->unkF0->rootNode)
+    if (actor->unkF0 && actor->unkF0->rootNode)
     {
         return true;
     }
@@ -165,7 +167,7 @@ bool actorUtils::IsBoneInWhitelist(Actor* actor, std::string boneName)
     auto whitelist_bone = whitelist.find(boneName);
     if (whitelist_bone != whitelist.end())
     {
-        auto racesMap = whitelist_bone->second;
+        auto & racesMap = whitelist_bone->second;
 
         if (racesMap.find(raceEID) != racesMap.end())
         {
@@ -219,12 +221,16 @@ const actorUtils::EquippedArmor actorUtils::GetActorEquippedArmor(Actor* actor, 
     return actorUtils::EquippedArmor{ nullptr, nullptr };
 }
 
-config_t actorUtils::BuildConfigForActor(Actor* actor)
+UInt64 actorUtils::BuildActorKey(Actor* actor)
 {
-    std::multiset<UInt64> key;
+    std::unordered_map<UInt64, UInt64> key;
+    ankerl::unordered_dense::hash<UInt64> hash;
+    UInt64 hashKey = 0;
+    UInt64 actorFormID = (UInt64)actor->formID;
 
     // key always starts with actors formID (really the refID)
-    key.emplace((UInt64)actor->formID);
+    key[actorFormID] = 1;
+    hashKey = hash((UInt64)actor->formID);
 
     for (auto slot : usedSlots)
     {
@@ -243,13 +249,29 @@ config_t actorUtils::BuildConfigForActor(Actor* actor)
             data |= equipped.model->formID;
         }
         if (data)
-        {
-            key.emplace(data);
+        {   
+            auto valIter = key.find(data);
+            if (valIter != key.end())
+            {
+                key[data] = key[data] + 1;
+                hashKey += hash(data) * key[data];
+            }
+            else
+            {
+                key[data] = 1;
+            }
         }
     }
 
+    //logger.Info("%s: actor %08x has hash key 0x%x\n", __func__, actor->formID, hashKey);
+
+    return hashKey;
+}
+
+config_t actorUtils::BuildConfigForActor(Actor* actor, UInt64 hashKey)
+{
     // Search cached configs for already existing config
-    auto found = cachedConfigs.find(key);
+    auto found = cachedConfigs.find(hashKey);
     if (found != cachedConfigs.end())
     {
         return found->second;
@@ -267,12 +289,12 @@ config_t actorUtils::BuildConfigForActor(Actor* actor)
             || (configArmorOverrideMap[priority].armors.empty()
                 && configArmorOverrideMap[priority].slots.empty()))
         {
-            auto overrideConfig = configActorOverrideMap[priority].config;
+            auto & overrideConfig = configActorOverrideMap[priority].config;
 
             if (IsActorPriorityWhitelisted(actor, priority))
             {
                 logger.Info("%s: actor %08x is actor whitelisted\n", __func__, actor->formID);
-                for (auto val : overrideConfig)
+                for (auto & val : overrideConfig)
                 {
                     // for each bone, if it is empty, we need to disable it,
                     // otherwise the configEntry is good.
@@ -290,7 +312,7 @@ config_t actorUtils::BuildConfigForActor(Actor* actor)
             else if (!IsActorPriorityBlacklisted(actor, priority))
             {
                 logger.Info("%s: actor %08x is not actor blacklisted\n", __func__, actor->formID);
-                for (auto val : overrideConfig)
+                for (auto & val : overrideConfig)
                 {
                     // for each bone, if it is empty, we need to disable it,
                     // otherwise the configEntry is good.
@@ -324,7 +346,7 @@ config_t actorUtils::BuildConfigForActor(Actor* actor)
                 }
             }
 
-            auto orData = configArmorOverrideMap[priority];
+            auto & orData = configArmorOverrideMap[priority];
 
             std::vector<actorUtils::EquippedArmor> equippedList;
 
@@ -347,11 +369,11 @@ config_t actorUtils::BuildConfigForActor(Actor* actor)
                 {
                     bool breakOutside = false;
                     //  Check config's filter IDs against found slot's IDs 
-                    for (auto equipped : equippedList)
+                    for (auto & equipped : equippedList)
                     {
                         if (*armorFormID == equipped.armor->formID || *armorFormID == equipped.model->formID)
                         {
-                            for (auto val : orData.config)
+                            for (auto & val : orData.config)
                             {
                                 // for each bone, if it is empty, we need to disable it,
                                 // otherwise the configEntry is good.
@@ -382,7 +404,7 @@ config_t actorUtils::BuildConfigForActor(Actor* actor)
             if (!orData.isFilterInverted && armorFormID == orData.armors.end() && !equippedList.empty())
             {
                 logger.Info("%s: actor %08x is armor blacklisted\n", __func__, actor->formID);
-                for (auto val : orData.config)
+                for (auto & val : orData.config)
                 {
                     if (orData.config[val.first].empty())
                     {
@@ -398,6 +420,9 @@ config_t actorUtils::BuildConfigForActor(Actor* actor)
         }
     }
 
-    cachedConfigs[key] = baseConfig;
+    //logger.Info("%s: Make new key\n", __func__);
+    //logger.Info("%s: Caching config\n", __func__);
+    cachedConfigs.emplace(hashKey, baseConfig);
+    //logger.Info("%s: exiting\n", __func__);
     return baseConfig;
 }

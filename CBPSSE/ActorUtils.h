@@ -18,11 +18,10 @@ namespace actorUtils
     bool IsActorMale(Actor* actor);
     bool IsActorTrackable(Actor* actor);
     bool IsActorValid(Actor* actor);
-    bool IsArmorPriorityBlacklisted(Actor* actor, UInt32 priority);
     bool IsActorInPowerArmor(Actor* actor);
-    bool IsArmorPriorityWhitelisted(Actor* actor, UInt32 priority);
     bool IsBoneInWhitelist(Actor* actor, std::string boneName);
 
     const EquippedArmor GetActorEquippedArmor(Actor* actor, UInt32 slot);
-    config_t BuildConfigForActor(Actor* actor);
+    UInt64 BuildActorKey(Actor* actor);
+    config_t BuildConfigForActor(Actor* actor, UInt64 hashKey);
 }

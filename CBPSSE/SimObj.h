@@ -1,6 +1,5 @@
 #pragma once
 
-#include <unordered_map>
 #include <vector>
 #include "amp.h"
 #include <ppl.h>
@@ -26,9 +25,11 @@ public:
     ~SimObj();
     bool AddBonesToThings(Actor* actor, std::vector<std::string>& boneNames);
     bool Bind(Actor* actor, std::vector<std::string>& boneNames, config_t& config);
+    UInt64 GetActorKey();
     Gender GetGender();
     std::string GetRaceEID();
     void Reset();
+    void SetActorKey(UInt64 key);
     void Update(Actor* actor);
     bool UpdateConfigs(config_t& config);
     bool IsBound() { return bound; }
@@ -37,6 +38,7 @@ private:
     bool bound = false;
     Gender gender;
     std::string raceEid;
+    UInt64 currentActorKey;
 };
 
 extern std::vector<std::string> boneNames;
