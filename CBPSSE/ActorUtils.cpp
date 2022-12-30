@@ -51,19 +51,29 @@ NiAVObject* actorUtils::GetBaseSkeleton(Actor* actor)
     return obj;
 }
 
-bool actorUtils::IsActorPriorityBlacklisted(Actor* actor, UInt32 priority)
+bool actorUtils::IsActorFilteredActor(Actor* actor, UInt32 priority)
 {
-    auto isFilterInverted = configActorOverrideMap[priority].isFilterInverted;
-    bool result = true;
-    auto & actorOverrideConfigEntry = configActorOverrideMap[priority];
-    auto & overrideActors = actorOverrideConfigEntry.actors;
+    auto& actorOverrideConfigEntry = configActorOverrideMap[priority];
+    auto& overrideActors = actorOverrideConfigEntry.actors;
+    auto isFilterInverted = actorOverrideConfigEntry.isFilterInverted;
+    bool result;
 
-    if (!isFilterInverted)
+    if (isFilterInverted)
     {
+        logger.Info("%s: actor %08x is actor whitelisted\n", __func__, actor->formID);
+        // Result is in the whitelist
+        result = !(overrideActors.count(actor->formID) > 0);
+    }
+    else
+    {
+        logger.Info("%s: actor %08x is actor blacklisted\n", __func__, actor->formID);
         // Result is in the blacklist
-        result = !(overrideActors.find(actor->formID) == overrideActors.end());
+        result = (overrideActors.count(actor->formID) > 0);
     }
 
+    // Simplified to xor
+    //result = isFilterInverted ^ (overrideActors.count(actor->formID) == 0);
+    
     return result;
 }
 
@@ -83,21 +93,6 @@ bool actorUtils::IsActorMale(Actor* actor)
         return true;
     else
         return false;
-}
-
-bool actorUtils::IsActorPriorityWhitelisted(Actor* actor, UInt32 priority)
-{
-    bool result = false;
-    auto& actorOverrideConfigEntry = configActorOverrideMap[priority];
-    auto isFilterInverted = configActorOverrideMap[priority].isFilterInverted;
-    auto& overrideActors = actorOverrideConfigEntry.actors;
-
-    if (isFilterInverted)
-    {
-        // Result is in the whitelist
-        result = !(overrideActors.find(actor->formID) == overrideActors.end());
-    }
-    return result;
 }
 
 bool actorUtils::IsActorInPowerArmor(Actor* actor)
@@ -259,6 +254,7 @@ UInt64 actorUtils::BuildActorKey(Actor* actor)
             else
             {
                 key[data] = 1;
+                hashKey += hash(data) * key[data];
             }
         }
     }
@@ -285,33 +281,14 @@ config_t actorUtils::BuildConfigForActor(Actor* actor, UInt64 hashKey)
         UInt32 priority = *priIter;
 
         // Check if there is no armor slot override entry
-        if (configArmorOverrideMap.find(priority) == configArmorOverrideMap.end()
+        if (configArmorOverrideMap.count(priority) == 0
             || (configArmorOverrideMap[priority].armors.empty()
                 && configArmorOverrideMap[priority].slots.empty()))
         {
             auto & overrideConfig = configActorOverrideMap[priority].config;
 
-            if (IsActorPriorityWhitelisted(actor, priority))
+            if (IsActorFilteredActor(actor, priority))
             {
-                logger.Info("%s: actor %08x is actor whitelisted\n", __func__, actor->formID);
-                for (auto & val : overrideConfig)
-                {
-                    // for each bone, if it is empty, we need to disable it,
-                    // otherwise the configEntry is good.
-                    if (overrideConfig[val.first].empty())
-                    {
-                        // This is ok because we're doing this to a premade copy sequentially
-                        baseConfig.unsafe_erase(val.first);
-                    }
-                    else
-                    {
-                        baseConfig[val.first] = val.second;
-                    }
-                }
-            }
-            else if (!IsActorPriorityBlacklisted(actor, priority))
-            {
-                logger.Info("%s: actor %08x is not actor blacklisted\n", __func__, actor->formID);
                 for (auto & val : overrideConfig)
                 {
                     // for each bone, if it is empty, we need to disable it,
@@ -338,10 +315,9 @@ config_t actorUtils::BuildConfigForActor(Actor* actor, UInt64 hashKey)
             // actor is not whitelisted or is blacklisted, continue on
             if (configActorOverrideMap.count(priority) > 0)
             {
-                if (!IsActorPriorityWhitelisted(actor, priority) ||
-                    IsActorPriorityBlacklisted(actor, priority))
+                if (IsActorFilteredActor(actor, priority))
                 {
-                    logger.Info("%s: actor %08x is filtered from armors\n", __func__, actor->formID);
+                    logger.Info("%s: actor %08x is filtered for priority %d\n", __func__, actor->formID, priority);
                     continue;
                 }
             }
@@ -422,7 +398,7 @@ config_t actorUtils::BuildConfigForActor(Actor* actor, UInt64 hashKey)
 
     //logger.Info("%s: Make new key\n", __func__);
     //logger.Info("%s: Caching config\n", __func__);
-    cachedConfigs.emplace(hashKey, baseConfig);
+    cachedConfigs.insert(std::make_pair(hashKey, baseConfig));
     //logger.Info("%s: exiting\n", __func__);
     return baseConfig;
 }

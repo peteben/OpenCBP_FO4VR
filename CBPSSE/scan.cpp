@@ -3,7 +3,7 @@
 
 #define DEBUG
 
-//#define SIMPLE_BENCHMARK
+#define SIMPLE_BENCHMARK
 
 #include <cstdlib>
 #include <cstdio>
@@ -184,21 +184,25 @@ void UpdateActors()
                 auto actor = DYNAMIC_CAST(ref, TESObjectREFR, Actor);
                 if (actor && actor->unkF0)
                 {
-                    // Find if actors is already being tracked
-                    auto soIt = actors.find(actor->formID);
-                    if (soIt == actors.end() && IsActorTrackable(actor))
+                    // If actor is not being tracked yet
+                    if (actors.count(actor->formID) == 0)
                     {
-                        //logger.Info("Tracking Actor with form ID %08x in cell %ld, race is %s, gender is %d\n", 
-                        //    actor->formID, actor->parentCell->formID,
-                        //    actor->race->editorId.c_str(),
-                        //    IsActorMale(actor));
-                        // Make SimObj and place new element in Things
-                        auto obj = SimObj(actor);
-                        actors.insert(std::make_pair(actor->formID, obj));
-                        actorEntries.push_back(ActorEntry{ actor->formID, actor });
+                        // If actor should not be tracked, don't add it.
+                        if (IsActorTrackable(actor))
+                        {
+                            //logger.Info("Tracking Actor with form ID %08x in cell %ld, race is %s, gender is %d\n", 
+                            //    actor->formID, actor->parentCell->formID,
+                            //    actor->race->editorId.c_str(),
+                            //    IsActorMale(actor));
+                            // Make SimObj and place new element in Things
+                            auto obj = SimObj(actor);
+                            actors.insert(std::make_pair(actor->formID, obj));
+                            actorEntries.push_back(ActorEntry{ actor->formID, actor });
+                        }
                     }
                     else if (IsActorValid(actor))
                     {
+                        // If already tracked then add to entry list for this frame
                         actorEntries.push_back(ActorEntry{ actor->formID, actor });
                     }
                 }
@@ -227,7 +231,7 @@ void UpdateActors()
     {
         count = 0;
         auto reloadActors = LoadConfig();
-        for (auto & a : actorEntries)
+        for (auto& a : actorEntries)
         {
             auto actorsIterator = actors.find(a.id);
             if (actorsIterator == actors.end())
@@ -254,7 +258,7 @@ void UpdateActors()
         }
     }
 
-    for (auto & a : actorEntries)
+    for (auto& a : actorEntries)
     {
         auto actorsIterator = actors.find(a.id);
         if (actorsIterator == actors.end())
@@ -282,66 +286,63 @@ void UpdateActors()
                 auto key = BuildActorKey(a.actor);
                 auto& composedConfig = BuildConfigForActor(a.actor, key);
 
-                logger.Error("UpdateActors: Setting key...\n");
+                //logger.Error("UpdateActors: Setting key for actor %x...\n", a.id);
                 simObj.SetActorKey(key);
                 simObj.Bind(a.actor, boneNames, composedConfig);
             }
         }
     }
 
-
-    //for (auto & a : actorEntries)
-    //{
-        concurrency::parallel_for_each(actorEntries.begin(), actorEntries.end(), [&](const auto& a)
-            {
-        auto actorsIterator = actors.find(a.id);
-        if (actorsIterator == actors.end())
+    concurrency::parallel_for_each(actorEntries.begin(), actorEntries.end(), [&](const auto& a)
         {
-            //logger.error("Sim Object not found in tracked actors\n");
-        }
-        else
-        {
-            auto& simObj = actorsIterator->second;
-
-            if (simObj.IsBound())
+            auto actorsIterator = actors.find(a.id);
+            if (actorsIterator == actors.end())
             {
-                UInt64 key = BuildActorKey(a.actor);
-                UInt64 simObjKey = simObj.GetActorKey();
-
-                if (key != simObjKey)
-                {
-                    logger.Error("UpdateActors: Key change detected for actor %08x.\n", a.actor->formID);
-                    simObj.SetActorKey(key);
-                    auto& composedConfig = BuildConfigForActor(a.actor, key);
-                    simObj.UpdateConfigs(composedConfig);
-                }
-                simObj.Update(a.actor);
+                //logger.error("Sim Object not found in tracked actors\n");
             }
-        }
+            else
+            {
+                auto& simObj = actorsIterator->second;
+
+                if (simObj.IsBound())
+                {
+                    UInt64 key = BuildActorKey(a.actor);
+                    UInt64 simObjKey = simObj.GetActorKey();
+
+                    // Detect changes in actor+slots combination
+                    if (key != simObjKey)
+                    {
+                        logger.Error("UpdateActors: Key change detected for actor %08x.\n", a.actor->formID);
+                        simObj.SetActorKey(key);
+                        auto& composedConfig = BuildConfigForActor(a.actor, key);
+                        simObj.UpdateConfigs(composedConfig);
+                    }
+                    simObj.Update(a.actor);
+                }
+            }
         });
-    //}
 
 
 
 #ifdef SIMPLE_BENCHMARK
-        QueryPerformanceCounter(&endingTime);
-        elapsedMicroseconds.QuadPart = endingTime.QuadPart - startingTime.QuadPart;
-        elapsedMicroseconds.QuadPart *= 1000000000LL;
-        elapsedMicroseconds.QuadPart /= frequency.QuadPart;
-        //long long avg = elapsedMicroseconds.QuadPart / callCount;
-        totaltime.QuadPart += elapsedMicroseconds.QuadPart;
-        //LOG_ERR("Collider Check Call Count: %d - Update Time = %lld ns", callCount, elapsedMicroseconds.QuadPart);
-        if (debugtimelog_framecount % 1000 == 0)
-        {
-            logger.Error("Average Update Time in 1000 frame = %lld ns\n", totaltime.QuadPart / debugtimelog_framecount);
-            totaltime.QuadPart = 0;
-            debugtimelog_framecount = 0;
-            //totalcallcount = 0;
-        }
-        debugtimelog_framecount++;
+    QueryPerformanceCounter(&endingTime);
+    elapsedMicroseconds.QuadPart = endingTime.QuadPart - startingTime.QuadPart;
+    elapsedMicroseconds.QuadPart *= 1000000000LL;
+    elapsedMicroseconds.QuadPart /= frequency.QuadPart;
+    //long long avg = elapsedMicroseconds.QuadPart / callCount;
+    totaltime.QuadPart += elapsedMicroseconds.QuadPart;
+    //LOG_ERR("Collider Check Call Count: %d - Update Time = %lld ns", callCount, elapsedMicroseconds.QuadPart);
+    if (debugtimelog_framecount % 1000 == 0)
+    {
+        logger.Error("Average Update Time in 1000 frame = %lld ns\n", totaltime.QuadPart / debugtimelog_framecount);
+        totaltime.QuadPart = 0;
+        debugtimelog_framecount = 0;
+        //totalcallcount = 0;
+    }
+    debugtimelog_framecount++;
 #endif
 
-    FAILED:
+FAILED:
     return;
 }
 

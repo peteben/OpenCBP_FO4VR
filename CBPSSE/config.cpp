@@ -33,14 +33,15 @@ config_t config;
 concurrency::concurrent_unordered_map<UInt32, armorOverrideData> configArmorOverrideMap;
 concurrency::concurrent_unordered_map<UInt32, actorOverrideData> configActorOverrideMap;
 std::unordered_map<std::string, UInt32> priorityNameMappings;
-std::unordered_set<UInt32> usedSlots;
-std::map<UInt64, config_t> cachedConfigs;
+concurrency::concurrent_unordered_set<UInt32> usedSlots;
+concurrency::concurrent_unordered_map<UInt64, config_t> cachedConfigs;
 std::set<UInt32> priorities;
 
 // TODO data structure these
 whitelist_t whitelist;
 std::vector<std::string> raceWhitelist;
 void DumpConfigToLog();
+void DumpUsedSlotsToLog();
 
 UInt32 GetFormIDFromString(std::string const& configString)
 {
@@ -161,7 +162,7 @@ bool LoadConfig()
     {
         priorityNameMappings["A"] = 0;
         configArmorOverrideMap[0].slots.insert(11);
-        usedSlots.emplace(11);
+        usedSlots.insert(11);
         configArmorOverrideMap[0].isFilterInverted = false;
 
         //Read armorIgnore
@@ -328,7 +329,7 @@ bool LoadConfig()
                 }
 
                 configArmorOverrideMap[armorPriority].slots.insert(slot - 30);
-                usedSlots.emplace(slot - 30);
+                usedSlots.insert(slot - 30);
             } while (commaPos != std::string::npos);
 
             configArmorOverrideMap[armorPriority].isFilterInverted = configReader.GetBoolean(*sectionsIter, "invertFilter", false);
@@ -558,6 +559,9 @@ bool LoadConfig()
     DumpConfigToLog();
 #endif
 
+    DumpUsedSlotsToLog();
+    DumpConfigToLog();
+
     logger.Error("Finished CBP Config\n");
     return reloadActors;
 }
@@ -565,15 +569,15 @@ bool LoadConfig()
 void DumpConfigToLog()
 {
     // Log contents of config
-    logger.Info("***** Config Dump *****\n");
-    for (auto & section : config)
-    {
-        logger.Info("[%s]\n", section.first.c_str());
-        for (auto & setting : section.second)
-        {
-            logger.Info("%s=%f\n", setting.first.c_str(), setting.second);
-        }
-    }
+    //logger.Info("***** Config Dump *****\n");
+    //for (auto & section : config)
+    //{
+    //    logger.Info("[%s]\n", section.first.c_str());
+    //    for (auto & setting : section.second)
+    //    {
+    //        logger.Info("%s=%f\n", setting.first.c_str(), setting.second);
+    //    }
+    //}
 
     logger.Info("***** ConfigArmorOverride Dump *****\n");
     for (auto & conf : configArmorOverrideMap)
@@ -631,5 +635,14 @@ void DumpWhitelistToLog()
         {
             logger.Info("%s= female: %d, male: %d\n", setting.first.c_str(), setting.second.female, setting.second.male);
         }
+    }
+}
+
+void DumpUsedSlotsToLog()
+{
+    logger.Info("***** UsedSlots Dump *****\n");
+    for (auto& v : usedSlots)
+    {
+        logger.Info("used slot : %d\n", v);
     }
 }

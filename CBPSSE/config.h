@@ -55,8 +55,8 @@ extern concurrency::concurrent_unordered_map<UInt32, armorOverrideData> configAr
 extern concurrency::concurrent_unordered_map<UInt32, actorOverrideData> configActorOverrideMap;
 extern whitelist_t whitelist;
 extern std::vector<std::string> raceWhitelist;
-extern std::unordered_set<UInt32> usedSlots;
-extern std::map<UInt64, config_t> cachedConfigs;
+extern concurrency::concurrent_unordered_set<UInt32> usedSlots;
+extern concurrency::concurrent_unordered_map<UInt64, config_t> cachedConfigs;
 extern std::set<UInt32> priorities;
 
 bool LoadConfig();

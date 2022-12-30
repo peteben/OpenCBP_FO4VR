@@ -12,9 +12,8 @@ namespace actorUtils
 
     std::string GetActorRaceEID(Actor* actor);
     NiAVObject* GetBaseSkeleton(Actor* actor);
-    bool IsActorPriorityBlacklisted(Actor* actor, UInt32 priority);
     bool IsActorInPowerArmor(Actor* actor);
-    bool IsActorPriorityWhitelisted(Actor* actor, UInt32 priority);
+    bool IsActorFilteredActor(Actor* actor, UInt32 priority);
     bool IsActorMale(Actor* actor);
     bool IsActorTrackable(Actor* actor);
     bool IsActorValid(Actor* actor);

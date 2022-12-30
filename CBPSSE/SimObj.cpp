@@ -32,7 +32,7 @@ SimObj::~SimObj()
 
 bool SimObj::AddBonesToThings(Actor* actor, std::vector<std::string>& boneNames)
 {
-    logger.Error("%s\n", __func__);
+    //logger.Error("%s\n", __func__);
     if (!actor)
     {
         return false;
@@ -41,11 +41,11 @@ bool SimObj::AddBonesToThings(Actor* actor, std::vector<std::string>& boneNames)
 
     if (loadedData && loadedData->rootNode)
     {
-        for (std::string b : boneNames)
+        for (std::string & b : boneNames)
         {
             if (!useWhitelist || (IsBoneInWhitelist(actor, b) && useWhitelist))
             {
-                logger.Error("%s: adding Bone %s for actor %08x\n", __func__, b.c_str(), actor->formID);
+                //logger.Error("%s: adding Bone %s for actor %08x\n", __func__, b.c_str(), actor->formID);
                 BSFixedString cs(b.c_str());
                 auto bone = loadedData->rootNode->GetObjectByName(&cs);
                 auto findBone = things.find(b);
@@ -130,8 +130,6 @@ void SimObj::Update(Actor* actor)
         return;
     }
 
-    //concurrency::parallel_for_each(things.begin(), things.end(), [&](auto& t)
-    //{
     for (auto& t : things)
     {
         // Might be a better way to do this
@@ -149,16 +147,11 @@ void SimObj::Update(Actor* actor)
             }
         }
 
-        if (!useWhitelist ||
-            (IsBoneInWhitelist(actor, t.first) && useWhitelist))
+        if (t.second.isEnabled)
         {
-            if (t.second.isEnabled)
-            {
-                t.second.UpdateThing(actor);
-            }
+            t.second.UpdateThing(actor);
         }
     }
-    //});
 }
 
 bool SimObj::UpdateConfigs(config_t& config)
