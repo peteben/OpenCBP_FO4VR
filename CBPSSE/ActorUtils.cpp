@@ -270,6 +270,7 @@ config_t actorUtils::BuildConfigForActor(Actor* actor, UInt64 hashKey)
     auto found = cachedConfigs.find(hashKey);
     if (found != cachedConfigs.end())
     {
+        logger.Info("%s: Cached config found for actor %08x: %x\n", __func__, actor->formID, hashKey);
         return found->second;
     }
 
@@ -336,48 +337,37 @@ config_t actorUtils::BuildConfigForActor(Actor* actor, UInt64 hashKey)
                 }
             }
 
-            auto armorFormID = orData.armors.begin();
+            //auto armorFormID = orData.armors.begin();
             // whitelist filter
             if (orData.isFilterInverted)
             {
                 logger.Info("%s: actor %08x is armor whitelisted\n", __func__, actor->formID);
-                for (; armorFormID != orData.armors.end(); ++armorFormID)
+
+                //  Check config's filter IDs against found slot's IDs 
+                for (auto & equipped : equippedList)
                 {
-                    bool breakOutside = false;
-                    //  Check config's filter IDs against found slot's IDs 
-                    for (auto & equipped : equippedList)
+                    if (orData.armors.count(equipped.armor->formID) || orData.armors.count(equipped.model->formID))
                     {
-                        if (*armorFormID == equipped.armor->formID || *armorFormID == equipped.model->formID)
+                        for (auto & val : orData.config)
                         {
-                            for (auto & val : orData.config)
+                            // for each bone, if it is empty, we need to disable it,
+                            // otherwise the configEntry is good.
+                            if (orData.config[val.first].empty())
                             {
-                                // for each bone, if it is empty, we need to disable it,
-                                // otherwise the configEntry is good.
-                                if (orData.config[val.first].empty())
-                                {
-                                    // This is ok because we're doing this to a premade copy sequentially
-                                    baseConfig.unsafe_erase(val.first);
-                                }
-                                else
-                                {
-                                    baseConfig[val.first] = val.second;
-                                }
+                                // This is ok because we're doing this to a premade copy sequentially
+                                baseConfig.unsafe_erase(val.first);
                             }
-
-                            breakOutside = true;
-                            break;
+                            else
+                            {
+                                baseConfig[val.first] = val.second;
+                            }
                         }
-                    }
-
-                    if (breakOutside)
-                    {
-                        break;
                     }
                 }
             }
 
             // blacklist filter
-            if (!orData.isFilterInverted && armorFormID == orData.armors.end() && !equippedList.empty())
+            if (!orData.isFilterInverted && orData.armors.empty() && !equippedList.empty())
             {
                 logger.Info("%s: actor %08x is armor blacklisted\n", __func__, actor->formID);
                 for (auto & val : orData.config)
@@ -396,8 +386,7 @@ config_t actorUtils::BuildConfigForActor(Actor* actor, UInt64 hashKey)
         }
     }
 
-    //logger.Info("%s: Make new key\n", __func__);
-    //logger.Info("%s: Caching config\n", __func__);
+    logger.Info("%s: Inserting cached config for actor %08x: %x\n", __func__, actor->formID, hashKey);
     cachedConfigs.insert(std::make_pair(hashKey, baseConfig));
     //logger.Info("%s: exiting\n", __func__);
     return baseConfig;
