@@ -238,9 +238,12 @@ void Thing::UpdateConfig(configEntry_t& centry)
 
     absRotX = centry["absRotX"] != 0.0;
 
-    linearSpreadforceX = centry["linearSpreadforceX"];
-    linearSpreadforceY = centry["linearSpreadforceY"];
-    linearSpreadforceZ = centry["linearSpreadforceZ"];
+    linearSpreadforceXtoY = centry["linearSpreadforceXtoY"];
+    linearSpreadforceXtoZ = centry["linearSpreadforceXtoZ"];
+    linearSpreadforceYtoX = centry["linearSpreadforceYtoX"];
+    linearSpreadforceYtoZ = centry["linearSpreadforceYtoZ"];
+    linearSpreadforceZtoX = centry["linearSpreadforceZtoX"];
+    linearSpreadforceZtoY = centry["linearSpreadforceZtoY"];
 
     gravitySupineX = centry["gravitySupineX"];
     gravitySupineY = centry["gravitySupineY"];
@@ -513,9 +516,9 @@ void Thing::UpdateThing(Actor* actor)
 
     beforeLocalDiff = beforeLocalDiff - localDiff;
 
-    localDiff.x += (beforeLocalDiff.y * linearSpreadforceY) + (beforeLocalDiff.z * linearSpreadforceZ);
-    localDiff.y += (beforeLocalDiff.x * linearSpreadforceX) + (beforeLocalDiff.z * linearSpreadforceZ);
-    localDiff.z += (beforeLocalDiff.x * linearSpreadforceX) + (beforeLocalDiff.y * linearSpreadforceY);
+    localDiff.x += (beforeLocalDiff.y * linearSpreadforceXtoY) + (beforeLocalDiff.z * linearSpreadforceXtoZ);
+    localDiff.y += (beforeLocalDiff.x * linearSpreadforceYtoX) + (beforeLocalDiff.z * linearSpreadforceYtoZ);
+    localDiff.z += (beforeLocalDiff.x * linearSpreadforceZtoX) + (beforeLocalDiff.y * linearSpreadforceZtoY);
 
     // Clamp against settings (which are in skeleton space)
     localDiff.x = clamp(localDiff.x, -maxOffsetX, maxOffsetX);

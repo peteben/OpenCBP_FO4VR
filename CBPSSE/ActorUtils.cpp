@@ -346,7 +346,9 @@ config_t actorUtils::BuildConfigForActor(Actor* actor, UInt64 hashKey)
                 //  Check config's filter IDs against found slot's IDs 
                 for (auto & equipped : equippedList)
                 {
-                    if (orData.armors.count(equipped.armor->formID) || orData.armors.count(equipped.model->formID))
+                    // Filter all armors listed
+                    if (orData.armors.count(equipped.armor->formID) ||
+                        orData.armors.count(equipped.model->formID))
                     {
                         for (auto & val : orData.config)
                         {
@@ -367,19 +369,31 @@ config_t actorUtils::BuildConfigForActor(Actor* actor, UInt64 hashKey)
             }
 
             // blacklist filter
-            if (!orData.isFilterInverted && orData.armors.empty() && !equippedList.empty())
+            if (!orData.isFilterInverted && !equippedList.empty())
             {
                 logger.Info("%s: actor %08x is armor blacklisted\n", __func__, actor->formID);
-                for (auto & val : orData.config)
+
+                //  Check config's filter IDs against found slot's IDs 
+                for (auto& equipped : equippedList)
                 {
-                    if (orData.config[val.first].empty())
+                    // Filter all armors not listed
+                    if (orData.armors.count(equipped.armor->formID) == 0 &&
+                        orData.armors.count(equipped.model->formID) == 0)
                     {
-                        // This is ok because we're doing this to a premade copy sequentially
-                        baseConfig.unsafe_erase(val.first);
-                    }
-                    else
-                    {
-                        baseConfig[val.first] = val.second;
+                        for (auto& val : orData.config)
+                        {
+                            // for each bone, if it is empty, we need to disable it,
+                            // otherwise the configEntry is good.
+                            if (orData.config[val.first].empty())
+                            {
+                                // This is ok because we're doing this to a premade copy sequentially
+                                baseConfig.unsafe_erase(val.first);
+                            }
+                            else
+                            {
+                                baseConfig[val.first] = val.second;
+                            }
+                        }
                     }
                 }
             }

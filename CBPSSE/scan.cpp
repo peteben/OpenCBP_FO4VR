@@ -3,7 +3,7 @@
 
 #define DEBUG
 
-#define SIMPLE_BENCHMARK
+//#define SIMPLE_BENCHMARK
 
 #include <cstdlib>
 #include <cstdio>

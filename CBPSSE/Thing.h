@@ -87,9 +87,12 @@ public:
 
     bool absRotX = 0;
 
-    float linearSpreadforceX = 0.0f;
-    float linearSpreadforceY = 0.0f;
-    float linearSpreadforceZ = 0.0f;
+    float linearSpreadforceXtoY = 0.0f;
+    float linearSpreadforceXtoZ = 0.0f;
+    float linearSpreadforceYtoX = 0.0f;
+    float linearSpreadforceYtoZ = 0.0f;
+    float linearSpreadforceZtoX = 0.0f;
+    float linearSpreadforceZtoY = 0.0f;
 
     float gravitySupineX = 0.0f;
     float gravitySupineY = 0.0f;
