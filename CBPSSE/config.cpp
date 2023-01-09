@@ -1,3 +1,5 @@
+#pragma warning(disable : 5040)
+
 #include "config.h"
 #include "INIReader.h"
 #include "log.h"
@@ -6,6 +8,7 @@
 #include "Utility.hpp"
 
 #include <fstream>
+#include <algorithm>
 #include <iostream>
 #include <iterator>
 #include <set>
@@ -18,7 +21,7 @@
 #include "f4se_common/Utilities.h"
 #include "f4se/GameData.h"
 
-//#define DEBUG 0
+#define DEBUG 0
 #pragma warning(disable : 4996)
 
 int configReloadCount = 60;
@@ -29,25 +32,33 @@ bool npcOnly = false;
 bool useWhitelist = false;
 
 config_t config;
-std::map<UInt32, armorOverrideData> configArmorOverrideMap;
-std::unordered_set<UInt32> usedSlots;
-std::map<std::multiset<UInt64>, config_t> cachedConfigs;
+concurrency::concurrent_unordered_map<UInt32, armorOverrideData> configArmorOverrideMap;
+concurrency::concurrent_unordered_map<UInt32, actorOverrideData> configActorOverrideMap;
+std::unordered_map<std::string, UInt32> priorityNameMappings;
+concurrency::concurrent_unordered_set<UInt32> usedSlots;
+concurrency::concurrent_unordered_map<UInt64, config_t> cachedConfigs;
+std::set<UInt32> priorities;
 
 // TODO data structure these
 whitelist_t whitelist;
 std::vector<std::string> raceWhitelist;
+void DumpConfigToLog();
+void DumpUsedSlotsToLog();
 
 UInt32 GetFormIDFromString(std::string const& configString)
 {
     size_t colonPos = configString.find_first_of(":");
     auto pluginFormID = configString.substr(0, colonPos);
     std::string pluginName = "";
-    if (colonPos != std::string::npos && colonPos < configString.length() - 1) {
+    if (colonPos != std::string::npos && colonPos < configString.length() - 1)
+    {
         pluginName = configString.substr(colonPos + 1);
     }
 
-    for (auto digit : pluginFormID) {
-        if (!std::isxdigit(digit)) {
+    for (auto digit : pluginFormID)
+    {
+        if (!std::isxdigit(digit))
+        {
             logger.Error("Invalid FormID %s, invalid hex character %c\n", pluginFormID.c_str(), digit);
             return -1;
         }
@@ -55,11 +66,13 @@ UInt32 GetFormIDFromString(std::string const& configString)
 
     UInt32 formID = std::stoul(pluginFormID, nullptr, 16);
 
-    if (!pluginName.empty()) {
+    if (!pluginName.empty())
+    {
         auto dataHandler = *g_dataHandler;
         auto modInfo = dataHandler->LookupLoadedModByName(pluginName.c_str());
 
-        if (!modInfo) {
+        if (!modInfo)
+        {
             logger.Error("Plugin with name %s does not exist\n", pluginName.c_str());
             return -1;
         }
@@ -67,7 +80,8 @@ UInt32 GetFormIDFromString(std::string const& configString)
         bool isLightPlugin = modInfo->recordFlags & modInfo->kRecordFlags_ESL;
         size_t maxPartialIdLength = isLightPlugin ? 3 : 6;
 
-        if (pluginFormID.length() > maxPartialIdLength) {
+        if (pluginFormID.length() > maxPartialIdLength)
+        {
             logger.Error("Invalid FormID %s, too many characters when%s plugin name specified\n", pluginFormID.c_str(), isLightPlugin ? " light" : "");
             return -1;
         }
@@ -75,8 +89,10 @@ UInt32 GetFormIDFromString(std::string const& configString)
         UInt32 loadIndex = isLightPlugin ? dataHandler->GetLoadedLightModIndex(pluginName.c_str()) : dataHandler->GetLoadedModIndex(pluginName.c_str());
         formID |= loadIndex << 24;
     }
-    else {
-        if (pluginFormID.length() > 8) {
+    else
+    {
+        if (pluginFormID.length() > 8)
+        {
             logger.Error("Invalid FormID %s, too many characters\n", pluginFormID.c_str());
             return -1;
         }
@@ -101,13 +117,13 @@ float collisionX = 1.0;
 float collisionY = 1.0;
 float collisionZ = 1.0;
 
-bool LoadConfig() {
+bool LoadConfig()
+{
     logger.Info("loadConfig\n");
 
     config_t configOverrides;
     std::map<UInt32, config_t> configArmorBoneOverrides;
     std::set<std::string> bonesSet;
-    std::unordered_map<std::string, UInt32> priorityNameMappings;
 
     bool reloadActors = false;
     auto playerOnlyOld = playerOnly;
@@ -124,56 +140,62 @@ bool LoadConfig() {
 
     // Note: Using INIReader results in a slight double read
     INIReader configReader("Data\\F4SE\\Plugins\\ocbp.ini");
-    if (configReader.ParseError() < 0) {
+    if (configReader.ParseError() < 0)
+    {
         logger.Error("Can't load 'ocbp.ini'\n");
     }
     logger.Error("Reading CBP Config\n");
 
     // Read general settings
     playerOnly = configReader.GetBoolean("General", "playerOnly", false);
-    npcOnly    = configReader.GetBoolean("General", "npcOnly", false);
+    npcOnly = configReader.GetBoolean("General", "npcOnly", false);
     useWhitelist = configReader.GetBoolean("General", "useWhitelist", false);
 
-    if (useWhitelist) {
+    if (useWhitelist)
+    {
         maleOnly = false;
         femaleOnly = false;
     }
-    else {
+    else
+    {
         femaleOnly = configReader.GetBoolean("General", "femaleOnly", false);
         maleOnly = configReader.GetBoolean("General", "maleOnly", false);
     }
 
     reloadActors = (playerOnly ^ playerOnlyOld) ||
-                    (femaleOnly ^ femaleOnlyOld) ||
-                    (maleOnly ^ maleOnlyOld) ||
-                    (npcOnly ^ npcOnlyOld) ||
-                    (useWhitelist ^ useWhitelistOld);
+        (femaleOnly ^ femaleOnlyOld) ||
+        (maleOnly ^ maleOnlyOld) ||
+        (npcOnly ^ npcOnlyOld) ||
+        (useWhitelist ^ useWhitelistOld);
 
     configReloadCount = configReader.GetInteger("Tuning", "rate", 0);
 
     // Read sections
-    auto sections = configReader.Sections();
+    auto & sections = configReader.Sections();
     auto prioritySection = sections.find("Priority");
     bool detectArmorCompat = configReader.GetBoolean("General", "detectArmor", false) && (prioritySection == sections.end() || configReader.Section(*prioritySection).empty());
 
     // Backwards compatibility for detectArmor style method
-    if (detectArmorCompat) {
+    if (detectArmorCompat)
+    {
         priorityNameMappings["A"] = 0;
-        configArmorOverrideMap[0].slots.emplace(11);
-        usedSlots.emplace(11);
+        configArmorOverrideMap[0].slots.insert(11);
+        usedSlots.insert(11);
         configArmorOverrideMap[0].isFilterInverted = false;
 
         //Read armorIgnore
         auto armorIgnoreStr = configReader.Get("General", "armorIgnore", "");
         {
-            size_t commaPos;
-            do {
+            size_t commaPos = 0;
+            do
+            {
                 commaPos = armorIgnoreStr.find_first_of(",");
                 auto token = armorIgnoreStr.substr(0, commaPos);
 
-                try {
+                try
+                {
                     UInt32 formID = std::stoul(token);
-                    configArmorOverrideMap[0].armors.emplace(formID);
+                    configArmorOverrideMap[0].armors.insert(formID);
                 }
                 catch (const std::exception&) {}
 
@@ -182,7 +204,8 @@ bool LoadConfig() {
         }
     }
 
-    for (auto sectionsIter = sections.begin(); sectionsIter != sections.end(); ++sectionsIter) {
+    for (auto sectionsIter = sections.begin(); sectionsIter != sections.end(); ++sectionsIter)
+    {
 
         // Split for override section check
         auto overrideStr = std::string("Override:");
@@ -197,76 +220,103 @@ bool LoadConfig() {
         auto armorStr = std::string("Armor.");
         auto splitArmorStr = std::mismatch(armorStr.begin(), armorStr.end(), sectionsIter->begin());
 
-        if (*sectionsIter == std::string("Attach")) {
+        auto actorStr = std::string("Actor.");
+        auto splitActorStr = std::mismatch(actorStr.begin(), actorStr.end(), sectionsIter->begin());
+
+        if (*sectionsIter == std::string("Attach"))
+        {
             // Get section contents
-            auto sectionMap = configReader.Section(*sectionsIter);
-            for (auto& valuesIter : sectionMap) {
+            auto & sectionMap = configReader.Section(*sectionsIter);
+            for (auto& valuesIter : sectionMap)
+            {
                 auto& boneName = valuesIter.first;
                 auto& attachName = valuesIter.second;
                 boneNames.push_back(boneName);
                 // Find specified bone section and insert map values into config
-                if (sections.find(attachName) != sections.end()) {
-                    auto attachMapSection = configReader.Section(attachName);
-                    for (auto& attachIter : attachMapSection) {
+                if (sections.find(attachName) != sections.end())
+                {
+                    auto & attachMapSection = configReader.Section(attachName);
+                    for (auto& attachIter : attachMapSection)
+                    {
                         auto& keyName = attachIter.first;
                         config[boneName][keyName] = configReader.GetFloat(attachName, keyName, 0.0);
                     }
                 }
             }
         }
-        else if (splitSubAttachStr.first == subAttachStr.end()) {
+        else if (splitSubAttachStr.first == subAttachStr.end())
+        {
+            // Get "XYZ" from Attach.XYZ
             auto attachSubname = std::string(splitSubAttachStr.second, sectionsIter->end());
 
             UInt32 attachPriority;
             auto mapEntry = priorityNameMappings.find(attachSubname);
-            if (mapEntry != priorityNameMappings.end()) {
+            if (mapEntry != priorityNameMappings.end())
+            {
                 attachPriority = mapEntry->second;
             }
-            else {
+            else
+            {
                 std::string priorityMapping = configReader.Get("Priority", attachSubname, "");
-                try {
+                try
+                {
                     attachPriority = std::stoul(priorityMapping);
                 }
-                catch (const std::exception&) {
+                catch (const std::exception&)
+                {
                     continue;
                 }
 
                 priorityNameMappings[attachSubname] = attachPriority;
             }
 
-            auto sectionMap = configReader.Section(*sectionsIter);
-            for (auto& valuesIter : sectionMap) {
+            // Finally read the "Attach." section
+            auto & sectionMap = configReader.Section(*sectionsIter);
+            for (auto& valuesIter : sectionMap)
+            {
                 auto& boneName = valuesIter.first;
                 auto& attachName = valuesIter.second;
                 boneNames.push_back(boneName);
                 // Find specified bone section and insert map values into config_t in configArmorOverrideMap at attachPriority
-                if (attachName.empty()) {
+                if (attachName.empty())
+                {
                     // "Touch" the map to add empty entry for bone in config_t to signal deletion later when building config from overrides
+                    // This allows for disabling specific disabling attach configs
                     configArmorOverrideMap[attachPriority].config[boneName];
-                } 
-                else if (sections.find(attachName) != sections.end()) {
-                    auto attachMapSection = configReader.Section(attachName);
-                    for (auto& attachIter : attachMapSection) {
+                    configActorOverrideMap[attachPriority].config[boneName];
+                }
+                else if (sections.find(attachName) != sections.end())
+                {
+                    auto & attachMapSection = configReader.Section(attachName);
+                    // Find the bone's settings and add them to configArmorOverrideMap
+                    for (auto& attachIter : attachMapSection)
+                    {
                         auto& keyName = attachIter.first;
                         configArmorOverrideMap[attachPriority].config[boneName][keyName] = configReader.GetFloat(attachName, keyName, 0.0);
+                        configActorOverrideMap[attachPriority].config[boneName][keyName] = configReader.GetFloat(attachName, keyName, 0.0);
                     }
                 }
             }
         }
-        else if (splitArmorStr.first == armorStr.end()) {
+        else if (splitArmorStr.first == armorStr.end())
+        {
             auto armorSubname = std::string(splitArmorStr.second, sectionsIter->end());
 
             UInt32 armorPriority;
             auto mapEntry = priorityNameMappings.find(armorSubname);
-            if (mapEntry != priorityNameMappings.end()) {
+            if (mapEntry != priorityNameMappings.end())
+            {
                 armorPriority = mapEntry->second;
             }
-            else {
+            else
+            {
                 std::string priorityMapping = configReader.Get("Priority", armorSubname, "");
-                try {
+                try
+                {
                     armorPriority = std::stoul(priorityMapping);
                 }
-                catch (const std::exception&) {
+                catch (const std::exception&)
+                {
                     continue;
                 }
 
@@ -274,74 +324,134 @@ bool LoadConfig() {
             }
 
             std::string slots = configReader.Get(*sectionsIter, "slots", "");
-            if (slots.empty()) {
+            if (slots.empty())
+            {
                 continue;
             }
 
-            size_t commaPos;
-            do {
+            size_t commaPos = 0;
+            do
+            {
                 commaPos = slots.find_first_of(",");
                 auto token = slots.substr(0, commaPos);
                 slots = slots.substr(commaPos + 1);
 
                 UInt32 slot;
-                try {
+                try
+                {
                     slot = std::stoul(token);
                 }
-                catch (const std::exception&) {
+                catch (const std::exception&)
+                {
                     continue;
                 }
 
-                configArmorOverrideMap[armorPriority].slots.emplace(slot - 30);
-                usedSlots.emplace(slot - 30);
+                configArmorOverrideMap[armorPriority].slots.insert(slot - 30);
+                usedSlots.insert(slot - 30);
             } while (commaPos != std::string::npos);
 
             configArmorOverrideMap[armorPriority].isFilterInverted = configReader.GetBoolean(*sectionsIter, "invertFilter", false);
 
             // Get section contents
-            auto sectionMap = configReader.Section(*sectionsIter);
-            for (auto& valuesIter : sectionMap) {
+            auto & sectionMap = configReader.Section(*sectionsIter);
+            for (auto& valuesIter : sectionMap)
+            {
                 auto& key = valuesIter.first;
-                if (key == "invertFilter" || key == "slots") {
+                if (key == "invertFilter" || key == "slots")
+                {
                     continue;
                 }
 
                 auto formID = GetFormIDFromString(valuesIter.second);
-                if (formID == -1) {
+                if (formID == -1)
+                {
                     continue;
                 }
 
-                configArmorOverrideMap[armorPriority].armors.emplace(formID);
+                configArmorOverrideMap[armorPriority].armors.insert(formID);
             }
         }
-        else if (*sectionsIter == std::string("Whitelist") && useWhitelist) {
+        else if (splitActorStr.first == actorStr.end())
+        {
+            auto actorSubname = std::string(splitActorStr.second, sectionsIter->end());
+
+            UInt32 actorPriority;
+            auto mapEntry = priorityNameMappings.find(actorSubname);
+            if (mapEntry != priorityNameMappings.end())
+            {
+                actorPriority = mapEntry->second;
+            }
+            else
+            {
+                std::string priorityMapping = configReader.Get("Priority", actorSubname, "");
+                try
+                {
+                    actorPriority = std::stoul(priorityMapping);
+                }
+                catch (const std::exception&)
+                {
+                    continue;
+                }
+
+                priorityNameMappings[actorSubname] = actorPriority;
+            }
+
+            configActorOverrideMap[actorPriority].isFilterInverted = configReader.GetBoolean(*sectionsIter, "invertFilter", false);
+
+            // Get section contents
+            auto & sectionMap = configReader.Section(*sectionsIter);
+            for (auto& valuesIter : sectionMap)
+            {
+                auto& key = valuesIter.first;
+                if (key == "invertFilter")
+                {
+                    continue;
+                }
+
+                auto refID = GetFormIDFromString(valuesIter.second);
+
+                if (refID == -1)
+                {
+                    continue;
+                }
+
+                configActorOverrideMap[actorPriority].actors.insert(refID);
+            }
+        }
+        else if (*sectionsIter == std::string("Whitelist") && useWhitelist)
+        {
             whitelist.clear();
             raceWhitelist.clear();
 
             // Get section contents
-            auto sectionMap = configReader.Section(*sectionsIter);
-            for (auto& valuesIter : sectionMap) {
-                auto& boneName      = valuesIter.first;
-                auto& whitelistName = valuesIter.second;
+            auto & sectionMap = configReader.Section(*sectionsIter);
+            for (auto& valuesIter : sectionMap)
+            {
+                auto& boneName = valuesIter.first;
+                std::string whitelistName = valuesIter.second;
 
-                size_t commaPos;
-                do {
+                size_t commaPos = 0;
+                do
+                {
                     commaPos = whitelistName.find_first_of(",");
                     auto token = whitelistName.substr(0, commaPos);
                     size_t colonPos = token.find_last_of(":");
                     auto raceName = token.substr(0, colonPos);
                     auto genderStr = token.substr(colonPos + 1);
 
-                    if (colonPos == -1) {
+                    if (colonPos == -1)
+                    {
                         whitelist[boneName][token].male = true;
                         whitelist[boneName][token].female = true;
                         raceWhitelist.push_back(token);
                     }
-                    else if (genderStr == "male") {
+                    else if (genderStr == "male")
+                    {
                         whitelist[boneName][raceName].male = true;
                         raceWhitelist.push_back(raceName);
                     }
-                    else if (genderStr == "female") {
+                    else if (genderStr == "female")
+                    {
                         whitelist[boneName][raceName].female = true;
                         raceWhitelist.push_back(raceName);
                     }
@@ -351,17 +461,20 @@ bool LoadConfig() {
                 } while (commaPos != -1);
             }
         }
-        else if (splitOverrideStr.first == overrideStr.end()) {
+        else if (splitOverrideStr.first == overrideStr.end())
+        {
             // If section name is prefixed with "Override:", grab other half of name for bone
             auto boneName = std::string(splitOverrideStr.second, sectionsIter->end());
 
             // Get section contents
-            auto sectionMap = configReader.Section(*sectionsIter); 
-            for (auto &valuesIt : sectionMap) {
+            auto & sectionMap = configReader.Section(*sectionsIter);
+            for (auto& valuesIt : sectionMap)
+            {
                 configOverrides[boneName][valuesIt.first] = configReader.GetFloat(*sectionsIter, valuesIt.first, 0.0);
             }
         }
-        else if (splitSubOverrideStr.first == subOverrideStr.end()) {
+        else if (splitSubOverrideStr.first == subOverrideStr.end())
+        {
             // If section name is prefixed with "Override.", grab other half for priority and name of bone
             auto overrideSection = std::string(splitSubOverrideStr.second, sectionsIter->end());
 
@@ -371,15 +484,19 @@ bool LoadConfig() {
 
             UInt32 overridePriority;
             auto mapEntry = priorityNameMappings.find(overrideSubname);
-            if (mapEntry != priorityNameMappings.end()) {
+            if (mapEntry != priorityNameMappings.end())
+            {
                 overridePriority = mapEntry->second;
             }
-            else {
+            else
+            {
                 std::string priorityMapping = configReader.Get("Priority", overrideSubname, "");
-                try {
+                try
+                {
                     overridePriority = std::stoul(priorityMapping);
                 }
-                catch (const std::exception&) {
+                catch (const std::exception&)
+                {
                     continue;
                 }
 
@@ -387,28 +504,44 @@ bool LoadConfig() {
             }
 
             // Get section contents
-            auto sectionMap = configReader.Section(*sectionsIter);
-            for (auto& valuesIt : sectionMap) {
+            auto & sectionMap = configReader.Section(*sectionsIter);
+            for (auto& valuesIt : sectionMap)
+            {
                 configArmorBoneOverrides[overridePriority][boneName][valuesIt.first] = configReader.GetFloat(*sectionsIter, valuesIt.first, 0.0);
             }
         }
     }
 
     // replace configs with override settings (if any)
-    for (auto &boneIter : configOverrides) {
-        if (config.count(boneIter.first) > 0) {
-            for (auto settingIter : boneIter.second) {
+    for (auto& boneIter : configOverrides)
+    {
+        if (config.count(boneIter.first) > 0)
+        {
+            for (auto & settingIter : boneIter.second)
+            {
                 config[boneIter.first][settingIter.first] = settingIter.second;
             }
         }
     }
 
     // replace armor configs with override settings (if any)
-    for (auto conf : configArmorBoneOverrides) {
-        for (auto& boneIter : conf.second) {
-            if (configArmorOverrideMap[conf.first].config.count(boneIter.first) > 0) {
-                for (auto settingIter : boneIter.second) {
+    for (auto & conf : configArmorBoneOverrides)
+    {
+        for (auto& boneIter : conf.second)
+        {
+            if (configArmorOverrideMap[conf.first].config.count(boneIter.first) > 0)
+            {
+                for (auto & settingIter : boneIter.second)
+                {
                     configArmorOverrideMap[conf.first].config[boneIter.first][settingIter.first] = settingIter.second;
+                }
+            }
+
+            if (configActorOverrideMap[conf.first].config.count(boneIter.first) > 0)
+            {
+                for (auto & settingIter : boneIter.second)
+                {
+                    configActorOverrideMap[conf.first].config[boneIter.first][settingIter.first] = settingIter.second;
                 }
             }
         }
@@ -419,13 +552,33 @@ bool LoadConfig() {
     boneNames.assign(bonesSet.begin(), bonesSet.end());
 
     // "Delete" bones specified in [Attach] but not [Attach.A] from the latter for compatibility with presets that remove breast bone jiggle when chest armor equipped
-    if (detectArmorCompat) {
-        for (auto boneName : boneNames) {
-            if (configArmorOverrideMap[0].config.find(boneName) == configArmorOverrideMap[0].config.end()) {
+    if (detectArmorCompat)
+    {
+        for (auto & boneName : boneNames)
+        {
+            if (configArmorOverrideMap[0].config.find(boneName) == configArmorOverrideMap[0].config.end())
+            {
                 configArmorOverrideMap[0].config[boneName];
+            }
+
+            if (configActorOverrideMap[0].config.find(boneName) == configActorOverrideMap[0].config.end())
+            {
+                configActorOverrideMap[0].config[boneName];
             }
         }
     }
+
+    for (auto & map : priorityNameMappings)
+    {
+        priorities.insert(map.second);
+    }
+
+#if DEBUG
+    DumpConfigToLog();
+#endif
+
+    DumpUsedSlotsToLog();
+    DumpConfigToLog();
 
     logger.Error("Finished CBP Config\n");
     return reloadActors;
@@ -651,51 +804,80 @@ std::vector<std::string> ConfigLineVectorToStringVector(std::vector<ConfigLine> 
     return outVector;
 }
 
-void DumpConfigsToLog()
+void DumpConfigToLog()
 {
     // Log contents of config
-    logger.Info("***** Config Dump *****\n");
-    for (auto section : config) {
-        logger.Info("[%s]\n", section.first.c_str());
-        for (auto setting : section.second) {
-            logger.Info("%s=%f\n", setting.first.c_str(), setting.second);
+    //logger.Info("***** Config Dump *****\n");
+    //for (auto & section : config)
+    //{
+    //    logger.Info("[%s]\n", section.first.c_str());
+    //    for (auto & setting : section.second)
+    //    {
+    //        logger.Info("%s=%f\n", setting.first.c_str(), setting.second);
+    //    }
+    //}
+
+    logger.Info("***** ConfigArmorOverride Dump *****\n");
+    for (auto & conf : configArmorOverrideMap)
+    {
+        logger.Info("** Slot-Armor Map priority %d **\n", conf.first);
+        logger.Info("[Slots]\n");
+        for (auto slot : conf.second.slots)
+        {
+            logger.Info("%ul\n", slot);
+        }
+        logger.Info("[Armors]\n");
+        for (auto formID : conf.second.armors)
+        {
+            logger.Info("%ul\n", formID);
+        }
+        logger.Info("** Config priority %d **\n", conf.first);
+        for (auto & section : conf.second.config)
+        {
+            logger.Info("[%s]\n", section.first.c_str());
+            for (auto & setting : section.second)
+            {
+                logger.Info("%s=%f\n", setting.first.c_str(), setting.second);
+            }
         }
     }
 
-    logger.Info("***** ConfigArmorOverride Dump *****\n");
-        for (auto conf : configArmorOverrideMap)
+    logger.Info("***** ConfigActorOverride Dump *****\n");
+    for (auto & conf : configActorOverrideMap)
+    {
+        logger.Info("** Slot-Actor Map priority %d **\n", conf.first);
+        logger.Info("[Actor]\n");
+        for (auto & formID : conf.second.actors)
         {
-            logger.Info("** Slot-Armor Map priority %ul **\n", conf.first);
-            logger.Info("[Slots]\n");
-            for (auto slot : conf.second.slots) {
-                logger.Info("%ul\n", slot);
-            }
-            logger.Info("[Armors]\n");
-            for (auto formID : conf.second.armors) {
-                logger.Info("%ul\n", formID);
-            }
-            logger.Info("** Config priority %ul **\n", conf.first);
-            for (auto section : conf.second.config) {
-                logger.Info("[%s]\n", section.first.c_str());
-                for (auto setting : section.second) {
-                    logger.Info("%s=%f\n", setting.first.c_str(), setting.second);
-                }
+            logger.Info("%d\n", formID);
+        }
+        logger.Info("** Config priority %d **\n", conf.first);
+        for (auto & section : conf.second.config)
+        {
+            logger.Info("[%s]\n", section.first.c_str());
+            for (auto & setting : section.second)
+            {
+                logger.Info("%s=%f\n", setting.first.c_str(), setting.second);
             }
         }
+    }
 }
 
-void DumpWhitelistToLog() {
+void DumpWhitelistToLog()
+{
     logger.Info("***** Whitelist Dump *****\n");
-    for (auto section : whitelist) {
+    for (auto & section : whitelist)
+    {
         logger.Info("[%s]\n", section.first.c_str());
-        for (auto setting : section.second) {
+        for (auto & setting : section.second)
+        {
             logger.Info("%s= female: %d, male: %d\n", setting.first.c_str(), setting.second.female, setting.second.male);
         }
     }
 }
 
-void DumpCollisionConfigsToLog() {
-
+void DumpCollisionConfigsToLog()
+{
     logger.Info("***** Affected Node Lines Dump *****\n");
     for (auto line : AffectedNodeLines)
     {
@@ -720,5 +902,14 @@ void DumpCollisionConfigsToLog() {
     {
         logger.Info("%s\n", node.NodeName.c_str());
         printSpheresMessage("", node.CollisionSpheres);
+    }
+}
+
+void DumpUsedSlotsToLog()
+{
+    logger.Info("***** UsedSlots Dump *****\n");
+    for (auto& v : usedSlots)
+    {
+        logger.Info("used slot : %d\n", v);
     }
 }

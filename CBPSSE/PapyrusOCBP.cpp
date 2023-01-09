@@ -1,3 +1,5 @@
+#pragma warning(disable : 5040)
+
 #include "PapyrusOCBP.h"
 
 //#include "f4se/PapyrusVM.h"
@@ -17,42 +19,45 @@
 
 #include "SimObj.h"
 
-std::unordered_map<UInt32, std::unordered_map<std::string, bool>> boneIgnores;
 
 namespace papyrusOCBP
 {
-	void SetBoneToggle(StaticFunctionTag*, Actor* actor, bool toggle, BSFixedString boneName)
-	{
-		boneIgnores[actor->formID][std::string(boneName.c_str())] = toggle;
-	}
+    concurrency::concurrent_unordered_map<UInt32, concurrency::concurrent_unordered_map<std::string, bool>> boneIgnores;
 
-	bool GetBoneToggle(StaticFunctionTag*, Actor* actor, BSFixedString boneName)
-	{
-		if (boneIgnores.find(actor->formID) != boneIgnores.end()) {
-			auto actorsBoneIgns = boneIgnores.at(actor->formID);
-			if (actorsBoneIgns.find(std::string(boneName.c_str())) != actorsBoneIgns.end()) {
-				return actorsBoneIgns.at(std::string(boneName.c_str()));
-			}
-		}
+    void SetBoneToggle(StaticFunctionTag*, Actor* actor, bool toggle, BSFixedString boneName)
+    {
+        boneIgnores[actor->formID][std::string(boneName.c_str())] = toggle;
+    }
 
-		return false;
-	}
+    bool GetBoneToggle(StaticFunctionTag*, Actor* actor, BSFixedString boneName)
+    {
+        if (boneIgnores.find(actor->formID) != boneIgnores.end())
+        {
+            auto actorsBoneIgns = boneIgnores.at(actor->formID);
+            if (actorsBoneIgns.find(std::string(boneName.c_str())) != actorsBoneIgns.end())
+            {
+                return actorsBoneIgns.at(std::string(boneName.c_str()));
+            }
+        }
 
-	void ClearBoneToggles(StaticFunctionTag*)
-	{
-		boneIgnores.clear();
-	}
+        return false;
+    }
+
+    void ClearBoneToggles(StaticFunctionTag*)
+    {
+        boneIgnores.clear();
+    }
 
 }
 
 void papyrusOCBP::RegisterFuncs(VirtualMachine* vm)
 {
-	vm->RegisterFunction(
-		new NativeFunction3<StaticFunctionTag, void, Actor*, bool, BSFixedString>("SetBoneToggle", "OCBP_API", papyrusOCBP::SetBoneToggle, vm));
+    vm->RegisterFunction(
+        new NativeFunction3<StaticFunctionTag, void, Actor*, bool, BSFixedString>("SetBoneToggle", "OCBP_API", papyrusOCBP::SetBoneToggle, vm));
 
-	vm->RegisterFunction(
-		new NativeFunction2<StaticFunctionTag, bool, Actor*, BSFixedString>("GetBoneToggle", "OCBP_API", papyrusOCBP::GetBoneToggle, vm));
+    vm->RegisterFunction(
+        new NativeFunction2<StaticFunctionTag, bool, Actor*, BSFixedString>("GetBoneToggle", "OCBP_API", papyrusOCBP::GetBoneToggle, vm));
 
-	vm->RegisterFunction(
-		new NativeFunction0<StaticFunctionTag, void>("ClearBoneToggles", "OCBP_API", papyrusOCBP::ClearBoneToggles, vm));
+    vm->RegisterFunction(
+        new NativeFunction0<StaticFunctionTag, void>("ClearBoneToggles", "OCBP_API", papyrusOCBP::ClearBoneToggles, vm));
 }

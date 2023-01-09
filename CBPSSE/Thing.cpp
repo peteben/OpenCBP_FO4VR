@@ -8,36 +8,63 @@
 
 constexpr auto DEG_TO_RAD = 3.14159265 / 180;
 const char* skeletonNif_boneName = "skeleton.nif";
-const char* COM_boneName = "COM";
+const float DIFF_LIMIT = 100.0;
 
 // TODO Make these logger macros
 //#define DEBUG 1
 //#define TRANSFORM_DEBUG 1
-#define COLLISION_DEBUG 1
+//#define COLLISION_DEBUG 1
 
 // <BoneName <ActorFormID, data>>
-//pos_map origLocalPos;
-//rot_map origLocalRot;
-
 pos_map Thing::origLocalPos;
 rot_map Thing::origLocalRot;
+rot_map Thing::origChestWorldRot;
 
-void Thing::ShowPos(NiPoint3& p) {
+//shared_mutex Thing::thing_map_lock;
+
+void Thing::ShowPos(NiPoint3& p)
+{
     logger.Info("%8.4f %8.4f %8.4f\n", p.x, p.y, p.z);
 }
 
-void Thing::ShowRot(NiMatrix43& r) {
+void Thing::ShowRot(NiMatrix43& r)
+{
     logger.Info("%8.4f %8.4f %8.4f %8.4f\n", r.data[0][0], r.data[0][1], r.data[0][2], r.data[0][3]);
     logger.Info("%8.4f %8.4f %8.4f %8.4f\n", r.data[1][0], r.data[1][1], r.data[1][2], r.data[1][3]);
     logger.Info("%8.4f %8.4f %8.4f %8.4f\n", r.data[2][0], r.data[2][1], r.data[2][2], r.data[2][3]);
 }
 
-Thing::Thing(Actor* actor, NiAVObject* obj, BSFixedString& name)
-    : boneName(name)
-    , velocity(NiPoint3(0, 0, 0)) {
-    
+Thing::Thing(NiAVObject* obj, BSFixedString& name, Actor* actor)
+    : thingObj(obj)
+    , boneName(name)
+    , velocity(NiPoint3(0, 0, 0))
+    , m_actor(actor)
+{
+
+    isEnabled = true;
+
+    auto skeletonObj = actorUtils::GetBaseSkeleton(actor);
+    if (skeletonObj == NULL)
+    {
+        logger.Error("%s: Didn't find thing %s's base skeleton.nif for actor %08x \n", __func__, boneName.c_str(), actor->formID);
+        return;
+    }
+
+    //->m_worldTransform.rot * skeletonObj->m_worldTransform.pos
+    auto firstWorldPos = skeletonObj->m_worldTransform.rot * obj->m_worldTransform.pos;
+    auto firstSkeletonPos = skeletonObj->m_worldTransform.rot * skeletonObj->m_worldTransform.pos;
+
+    rightSide = (firstWorldPos.x - firstSkeletonPos.x) >= 0.0;
+
     // Set initial positions
     oldWorldPos = obj->m_worldTransform.pos;
+
+    //logger.Error("obj->m_worldTransform.rot.Transpose():");
+    //ShowRot(obj->m_worldTransform.rot.Transpose());
+    //logger.Error("obj->m_localTransform.rot:");
+    //ShowRot(obj->m_localTransform.rot);
+    origWorldRot = obj->m_localTransform.rot.Transpose() * obj->m_worldTransform.rot;
+
     time = clock();
 
 	float nodescale = 1.0f;
@@ -56,9 +83,128 @@ Thing::Thing(Actor* actor, NiAVObject* obj, BSFixedString& name)
 	thingCollisionSpheres = CreateThingCollisionSpheres(actor, std::string(name.c_str()), nodescale);
 
 	skipFramesCount = collisionSkipFrames;
+    IsBreastBone = ContainsNoCase(std::string(boneName.c_str()), "Breast");
 }
 
-Thing::~Thing() {
+Thing::~Thing()
+{
+}
+
+NiPoint3 Thing::CalculateGravitySupine(Actor* actor)
+{
+    NiPoint3 varGravitySupine = NiPoint3(0.0, 0.0, 0.0);
+
+    if (!IsBreastBone) //other bones don't need to edited gravity by SPINE2 obj
+    {
+        //other nodes are based on parent obj
+        varGravitySupine = NiPoint3(0.0, 0.0, 0.0);
+        return varGravitySupine;
+    }
+
+    //Get the reference bone to know which way the breasts are orientated
+    //thing_ReadNode_lock.lock();
+    BSFixedString chest_str("Chest");
+
+    NiAVObject* breastGravityReferenceBone = actor->unkF0->rootNode->GetObjectByName(&chest_str);
+
+    //thing_ReadNode_lock.unlock();
+
+    float gravityRatio = 0.0f;
+    if (breastGravityReferenceBone != nullptr)
+    {
+        //auto breastRot = breastGravityReferenceBone->m_worldTransform.rot;
+        //Get the orientation (here the Z element of the rotation matrix (approx 1.0 when standing up, approx -1.0 when upside down))
+        auto chestOrientation = breastGravityReferenceBone->m_worldTransform.rot.data[1][2];
+        gravityRatio = chestOrientation >= 0.0 ? chestOrientation : 0.0;
+    }
+
+    varGravitySupine = NiPoint3(gravitySupineX, gravitySupineY, gravitySupineZ) * gravityRatio;
+
+    return varGravitySupine;
+}
+
+void Thing::StoreOriginalTransforms(Actor* actor)
+{
+    // Save the bones' original local values, per actor, if they already haven't
+    auto origLocalPos_iter = origLocalPos.find(boneName.c_str());
+    auto origLocalRot_iter = origLocalRot.find(boneName.c_str());
+
+    auto obj = thingObj;
+
+    //thing_map_lock.lock();
+    if (IsBreastBone)
+    {
+        BSFixedString chest_name("Chest");
+        NiAVObject* chestObj = actor->unkF0->rootNode->GetObjectByName(&chest_name);
+
+        if (chestObj && chestObj->m_parent)
+        {
+            if (origLocalRot_iter == origChestWorldRot.end())
+            {
+                origChestWorldRot[boneName.c_str()][actor->formID] = chestObj->m_parent->m_worldTransform.rot * chestObj->m_localTransform.rot;
+            }
+            else
+            {
+                auto actorRotMap = origChestWorldRot.at(boneName.c_str());
+                auto actor_iter = actorRotMap.find(actor->formID);
+                if (actor_iter == actorRotMap.end())
+                {
+                    origChestWorldRot[boneName.c_str()][actor->formID] = chestObj->m_parent->m_worldTransform.rot * chestObj->m_localTransform.rot;
+                }
+            }
+        }
+    }
+
+    // Original Bone Position
+    if (origLocalPos_iter == origLocalPos.end())
+    {
+        origLocalPos[boneName.c_str()][actor->formID] = obj->m_localTransform.pos;
+#ifdef DEBUG
+        logger.Error("for bone %s, actor %08x: \n", boneName.c_str(), actor->formID);
+        logger.Error("firstRun pos Set: \n");
+        ShowPos(obj->m_localTransform.pos);
+#endif
+    }
+    else
+    {
+        auto actorPosMap = origLocalPos.at(boneName.c_str());
+        auto actor_iter = actorPosMap.find(actor->formID);
+        if (actor_iter == actorPosMap.end())
+        {
+            origLocalPos[boneName.c_str()][actor->formID] = obj->m_localTransform.pos;
+#ifdef DEBUG
+            logger.Error("for bone %s, actor %08x: \n", boneName.c_str(), actor->formID);
+            logger.Error("firstRun pos Set: \n");
+            ShowPos(obj->m_localTransform.pos);
+#endif
+        }
+    }
+
+    // Original Bone Rotation
+    if (origLocalRot_iter == origLocalRot.end())
+    {
+        origLocalRot[boneName.c_str()][actor->formID] = obj->m_localTransform.rot;
+#ifdef DEBUG
+        logger.Error("for bone %s, actor %08x: \n", boneName.c_str(), actor->formID);
+        logger.Error("firstRun rot Set:\n");
+        ShowRot(obj->m_localTransform.rot);
+#endif
+    }
+    else
+    {
+        auto actorRotMap = origLocalRot.at(boneName.c_str());
+        auto actor_iter = actorRotMap.find(actor->formID);
+        if (actor_iter == actorRotMap.end())
+        {
+            origLocalRot[boneName.c_str()][actor->formID] = obj->m_localTransform.rot;
+#ifdef DEBUG
+            logger.Error("for bone %s, actor %08x: \n", boneName.c_str(), actor->formID);
+            logger.Error("firstRun rot Set: \n");
+            ShowRot(obj->m_localTransform.rot);
+#endif
+        }
+    }
+    //thing_map_lock.unlock();
 }
 
 // TODO: this copies an entire vector...
@@ -104,7 +250,8 @@ std::vector<Sphere> Thing::CreateThingCollisionSpheres(Actor * actor, std::strin
 	return spheres;
 }
 
-void Thing::UpdateConfig(configEntry_t & centry) {
+void Thing::UpdateConfig(configEntry_t& centry)
+{
     stiffness = centry["stiffness"];
     stiffness2 = centry["stiffness2"];
     damping = centry["damping"];
@@ -133,7 +280,7 @@ void Thing::UpdateConfig(configEntry_t & centry) {
 
     if (centry.find("timeStep") != centry.end())
         timeStep = centry["timeStep"];
-    else 
+    else
         timeStep = 0.016f;
 
     gravityBias = centry["gravityBias"];
@@ -145,6 +292,17 @@ void Thing::UpdateConfig(configEntry_t & centry) {
         timeTick = 1;
 
     absRotX = centry["absRotX"] != 0.0;
+
+    linearSpreadforceXtoY = centry["linearSpreadforceXtoY"];
+    linearSpreadforceXtoZ = centry["linearSpreadforceXtoZ"];
+    linearSpreadforceYtoX = centry["linearSpreadforceYtoX"];
+    linearSpreadforceYtoZ = centry["linearSpreadforceYtoZ"];
+    linearSpreadforceZtoX = centry["linearSpreadforceZtoX"];
+    linearSpreadforceZtoY = centry["linearSpreadforceZtoY"];
+
+    gravitySupineX = centry["gravitySupineX"];
+    gravitySupineY = centry["gravitySupineY"];
+    gravitySupineZ = centry["gravitySupineZ"];
 }
 
 //static float clamp(float val, float min, float max) {
@@ -153,15 +311,23 @@ void Thing::UpdateConfig(configEntry_t & centry) {
 //    return val;
 //}
 
-void Thing::Reset(Actor *actor) {
+static float remap(float value, float start1, float stop1, float start2, float stop2)
+{
+    return start2 + (stop2 - start2) * ((value - start1) / (stop1 - start1));
+}
+
+void Thing::Reset(Actor* actor)
+{
     auto loadedState = actor->unkF0;
-    if (!loadedState || !loadedState->rootNode) {
+    if (!loadedState || !loadedState->rootNode)
+    {
         logger.Error("No loaded state for actor %08x\n", actor->formID);
         return;
     }
     auto obj = loadedState->rootNode->GetObjectByName(&boneName);
 
-    if (!obj) {
+    if (!obj)
+    {
         logger.Error("Couldn't get name for loaded state for actor %08x\n", actor->formID);
         return;
     }
@@ -171,47 +337,51 @@ void Thing::Reset(Actor *actor) {
 }
 
 // Returns 
-template <typename T> int sgn(T val) {
+template <typename T> int sgn(T val)
+{
     return (T(0) < val) - (val < T(0));
 }
 
-NiAVObject* Thing::IsThingActorValid(Actor* actor) {
-    if (!actorUtils::IsActorValid(actor)) {
-        logger.Error("%s: No valid actor in Thing::Update\n", __func__);
+NiAVObject* Thing::IsThingActorValid(Actor* actor)
+{
+    if (!actorUtils::IsActorValid(actor))
+    {
+        //logger.Error("%s: No valid actor in Thing::Update\n", __func__);
         return NULL;
     }
     auto loadedState = actor->unkF0;
-    if (!loadedState || !loadedState->rootNode) {
-        logger.Error("%s: No loaded state for actor %08x\n", __func__, actor->formID);
+    if (!loadedState || !loadedState->rootNode)
+    {
+        //logger.Error("%s: No loaded state for actor %08x\n", __func__, actor->formID);
         return NULL;
     }
     auto obj = loadedState->rootNode->GetObjectByName(&boneName);
 
-    if (!obj) {
-        logger.Error("%s: Couldn't get name for loaded state for actor %08x\n", __func__, actor->formID);
+    if (!obj)
+    {
+        //logger.Error("%s: Couldn't get name for loaded state for actor %08x\n", __func__, actor->formID);
         return NULL;
     }
 
-    if (!obj->m_parent) {
-        logger.Error("%s: Couldn't get bone %s parent for actor %08x\n", __func__, boneName.c_str(), actor->formID);
+    if (!obj->m_parent)
+    {
+        //logger.Error("%s: Couldn't get bone %s parent for actor %08x\n", __func__, boneName.c_str(), actor->formID);
         return NULL;
     }
 
     return obj;
 }
 
-void Thing::UpdateThing(Actor *actor) {
-
+void Thing::UpdateThing(Actor* actor)
+{
 	bool collisionsOn = true;
+    auto forceMultiplier = 1.0;
 
-    /*LARGE_INTEGER startingTime, endingTime, elapsedMicroseconds;
-    LARGE_INTEGER frequency;
+    thingObj = IsThingActorValid(actor);
+    auto obj = thingObj;
 
-    QueryPerformanceFrequency(&frequency);
-    QueryPerformanceCounter(&startingTime);*/
-
-    auto obj = IsThingActorValid(actor);
-    if (!obj) {
+    if (!obj)
+    {
         return;
     }
 
@@ -263,58 +433,14 @@ void Thing::UpdateThing(Actor *actor) {
     }
 #endif
 
-    // Save the bones' original local values if they already haven't
-    auto origLocalPos_iter = origLocalPos.find(boneName.c_str());
-    auto origLocalRot_iter = origLocalRot.find(boneName.c_str());
+    StoreOriginalTransforms(actor);
 
-    if (origLocalPos_iter == origLocalPos.end()) {
-        origLocalPos[boneName.c_str()][actor->formID] = obj->m_localTransform.pos;
-#ifdef DEBUG
-        logger.Error("for bone %s, actor %08x: \n", boneName.c_str(), actor->formID);
-        logger.Error("firstRun pos Set: \n");
-        ShowPos(obj->m_localTransform.pos);
-#endif
-    }
-    else {
-        auto actorPosMap = origLocalPos.at(boneName.c_str());
-        auto actor_iter = actorPosMap.find(actor->formID);
-        if (actor_iter == actorPosMap.end()) {
-            origLocalPos[boneName.c_str()][actor->formID] = obj->m_localTransform.pos;
-#ifdef DEBUG
-            logger.Error("for bone %s, actor %08x: \n", boneName.c_str(), actor->formID);
-            logger.Error("firstRun pos Set: \n");
-            ShowPos(obj->m_localTransform.pos);
-#endif
-        }
-    }
-    if (origLocalRot_iter == origLocalRot.end()) {
-        origLocalRot[boneName.c_str()][actor->formID] = obj->m_localTransform.rot;
-#ifdef DEBUG
-        logger.Error("for bone %s, actor %08x: \n", boneName.c_str(), actor->formID);
-        logger.Error("firstRun rot Set:\n");
-        ShowRot(obj->m_localTransform.rot);
-#endif
-    }
-    else {
-        auto actorRotMap = origLocalRot.at(boneName.c_str());
-        auto actor_iter = actorRotMap.find(actor->formID);
-        if (actor_iter == actorRotMap.end()) {
-            origLocalRot[boneName.c_str()][actor->formID] = obj->m_localTransform.rot;
-#ifdef DEBUG
-            logger.Error("for bone %s, actor %08x: \n", boneName.c_str(), actor->formID);
-            logger.Error("firstRun rot Set: \n");
-            ShowRot(obj->m_localTransform.rot);
-#endif
-        }
-    }
     auto skeletonObj = actorUtils::GetBaseSkeleton(actor);
-    if (skeletonObj == NULL) {
+    if (skeletonObj == NULL)
+    {
         logger.Error("%s: Didn't find thing %s's base skeleton.nif for actor %08x \n", __func__, boneName.c_str(), actor->formID);
         return;
     }
-
-
-    objRotation = skeletonObj->m_localTransform.rot.Transpose();
 
 	std::vector<long> thingIdList;
 	std::vector<long> hashIdList;
@@ -398,11 +524,21 @@ void Thing::UpdateThing(Actor *actor) {
 //    ShowRot(skeletonObj->m_worldTransform.rot);
 //    //ShowPos(obj->m_parent->m_worldTransform.rot.Transpose() * obj->m_localTransform.pos);
 #endif
-    NiMatrix43 targetRot = skeletonObj->m_localTransform.rot.Transpose();
-    NiPoint3 origWorldPos = (obj->m_parent->m_worldTransform.rot.Transpose() * origLocalPos[boneName.c_str()][actor->formID]) +  obj->m_parent->m_worldTransform.pos;
 
-    // Offset to move Center of Mass make rotational motion more significant
-    NiPoint3 target = (targetRot * NiPoint3(varCogOffsetX, varCogOffsetY, varCogOffsetZ)) + origWorldPos;
+    NiMatrix43 skelSpaceInvTransform = skeletonObj->m_localTransform.rot.Transpose();
+    NiPoint3 origWorldPos = (obj->m_parent->m_worldTransform.rot.Transpose() * origLocalPos[boneName.c_str()][actor->formID]) + obj->m_parent->m_worldTransform.pos;
+    NiPoint3 origWorldPosRot = (obj->m_parent->m_worldTransform.rot.Transpose() * origLocalPos[boneName.c_str()][actor->formID]) + obj->m_parent->m_worldTransform.pos;
+    //float nodeParentInvScale = 1.0f / obj->m_parent->m_worldTransform.scale;
+
+    // Cog offset is offset to move Center of Mass make rotational motion more significant
+    // First transform the cog offset (which is in skeleton space) to world space
+    // target is in world space
+    NiPoint3 target = (skelSpaceInvTransform * NiPoint3(cogOffsetX, cogOffsetY, cogOffsetZ)) + origWorldPos;
+
+    // move the bones based on the supplied weightings
+    // Convert the world translations into local coordinates
+    NiMatrix43 rotateLinear;
+    rotateLinear.SetEulerAngles(rotateLinearX * DEG_TO_RAD, rotateLinearY * DEG_TO_RAD, rotateLinearZ * DEG_TO_RAD);
 
 #if DEBUG
     logger.Error("World Position: ");
@@ -411,27 +547,27 @@ void Thing::UpdateThing(Actor *actor) {
     ShowPos(oldWorldPos);
     logger.Error("target: ");
     ShowPos(target);
-    //    //logger.Error("Parent World Position difference: ");
-//    //ShowPos(obj->m_worldTransform.pos - obj->m_parent->m_worldTransform.pos);
-    //logger.Error("Target Rotation * cogOffsetY %8.4f: ", cogOffsetY);
-    //ShowPos(targetRot * NiPoint3(cogOffsetX, cogOffsetY, cogOffsetZ));
-//    //logger.Error("Target Rotation:\n");
-//    //ShowRot(targetRot);
-//    logger.Error("cogOffset x Transformation:");
-//    ShowPos(targetRot * NiPoint3(cogOffsetX, 0, 0));
-//    logger.Error("cogOffset y Transformation:");
-//    ShowPos(targetRot * NiPoint3(0, cogOffsetY, 0));
-//    logger.Error("cogOffset z Transformation:");
-//    ShowPos(targetRot * NiPoint3(0, 0, cogOffsetZ));
+    //logger.Error("Parent World Position difference: ");
+    //ShowPos(obj->m_worldTransform.pos - obj->m_parent->m_worldTransform.pos);
+    ShowPos(skelSpaceInvTransform * NiPoint3(cogOffsetX, cogOffsetY, cogOffsetZ));
+    //logger.Error("Target Rotation:\n");
+    //ShowRot(skelSpaceInvTransform);
+    logger.Error("cogOffset x Transformation:");
+    ShowPos(skelSpaceInvTransform * NiPoint3(cogOffsetX, 0, 0));
+    logger.Error("cogOffset y Transformation:");
+    ShowPos(skelSpaceInvTransform * NiPoint3(0, cogOffsetY, 0));
+    logger.Error("cogOffset z Transformation:");
+    ShowPos(skelSpaceInvTransform * NiPoint3(0, 0, cogOffsetZ));
 #endif
 
     if (!IsThereCollision)
     {
         // diff is Difference in position between old and new world position
-        NiPoint3 diff = target - oldWorldPos;
+        // diff is world space
+        NiPoint3 diff = (target - oldWorldPos) * forceMultiplier;
 
         // Move up in for gravity correction
-        diff += targetRot * NiPoint3(0, 0, varGravityCorrection);
+        diff += skelSpaceInvTransform * NiPoint3(0, 0, varGravityCorrection);
 
         //diff += collisionVector;
 #if DEBUG
@@ -439,21 +575,39 @@ void Thing::UpdateThing(Actor *actor) {
         ShowPos(diff);
 #endif
 
-    if (fabs(diff.x) > 100 || fabs(diff.y) > 100 || fabs(diff.z) > 100) {
-        logger.Error("%s: bone %s transform reset for actor %x\n", __func__, boneName.c_str(), actor->formID);
-        obj->m_localTransform.pos = origLocalPos[boneName.c_str()][actor->formID];
-        oldWorldPos = target;
-        velocity = NiPoint3(0, 0, 0);
-        time = clock();
-        return;
-    }
+        if (fabs(diff.x) > DIFF_LIMIT || fabs(diff.y) > DIFF_LIMIT || fabs(diff.z) > DIFF_LIMIT)
+        {
+	        logger.Error("%s: bone %s transform reset for actor %x\n", __func__, boneName.c_str(), actor->formID);
+	        obj->m_localTransform.pos = origLocalPos[boneName.c_str()][actor->formID];
+	        obj->m_localTransform.rot = origLocalRot[boneName.c_str()][actor->formID];
+
+	        oldWorldPos = target;
+	        oldWorldPosRot = origWorldPos;
+
+	        velocity = NiPoint3(0, 0, 0);
+	        time = clock();
+	        return;
+	    }
+
+	    // Rotation for transforming gravityBias back to world coordinates
+	    auto newRotation = obj->m_parent->m_worldTransform.rot * origWorldRot.Transpose();
 
         float timeMultiplier = timeTick / (float)deltaT;
+	    // Transform to local space
+	    //diff = obj->m_parent->m_worldTransform.rot * (diff * timeMultiplier);
+	    diff = (diff * timeMultiplier);
         diff *= timeMultiplier;
 
-        // Compute the "Spring" Force
-        NiPoint3 diff2(diff.x * diff.x * sgn(diff.x), diff.y * diff.y * sgn(diff.y), diff.z * diff.z * sgn(diff.z));
-        NiPoint3 force = (diff * stiffness) + (diff2 * stiffness2) - (targetRot * NiPoint3(0, 0, varGravityBias));
+
+    NiPoint3 posDelta = NiPoint3(0, 0, 0);
+
+    // Compute the "Spring" Force
+
+    NiPoint3 diff2(diff.x * diff.x * sgn(diff.x),
+        diff.y * diff.y * sgn(diff.y),
+        diff.z * diff.z * sgn(diff.z));
+
+    NiPoint3 force = (diff * stiffness) + (diff2 * stiffness2) - (newRotation * skelSpaceInvTransform * NiPoint3(0, 0, gravityBias));
 
 #if DEBUG
         logger.Error("Diff2: ");
@@ -462,15 +616,16 @@ void Thing::UpdateThing(Actor *actor) {
         ShowPos(force);
 #endif
 
-        do {
-            // Assume mass is 1, so Accelleration is Force, can vary mass by changinf force
-            //velocity = (velocity + (force * timeStep)) * (1 - (damping * timeStep));
-            velocity = (velocity + (force * timeStep)) - (velocity * (damping * timeStep));
+	    do
+	    {
+	        // Assume mass is 1, so Accelleration is Force, can vary mass by changinf force
+	        //velocity = (velocity + (force * timeStep)) * (1 - (damping * timeStep));
+	        velocity = (velocity + (force * timeStep)) - (velocity * (damping * timeStep));
 
-            // New position accounting for time
-            posDelta += (velocity * timeStep);
-            deltaT -= timeTick;
-        } while (deltaT >= timeTick);
+	        // New position accounting for time
+	        posDelta += (velocity * timeStep);
+	        deltaT -= timeTick;
+	    } while (deltaT >= timeTick);
 
         if (collisionsOn && hashSize > 0)
         {
@@ -566,106 +721,159 @@ void Thing::UpdateThing(Actor *actor) {
         //oldWorldPos = newPos - target;
 
 #if DEBUG
-        logger.Error("posDelta: ");
-        ShowPos(posDelta);
-        logger.Error("newPos: ");
-        ShowPos(newPos);
+    logger.Error("posDelta: ");
+    ShowPos(posDelta);
+    logger.Error("newPos: ");
+    ShowPos(newPos);
 #endif
-        // clamp the difference to stop the breast severely lagging at low framerates
-        auto diff = newPos - target;
+    // clamp the difference to stop the breast severely lagging at low framerates
+    auto diff = newPos - target;
 
-        oldWorldPos = diff + target;
+    oldWorldPos = diff + target;
+//velocity = /*obj->m_parent->m_worldTransform.rot.Transpose() * */velocity;
 
-        diff.x = clamp(diff.x, -maxOffsetX, maxOffsetX);
-        diff.y = clamp(diff.y, -maxOffsetY, maxOffsetY);
-        diff.z = clamp(diff.z - gravityCorrection, -maxOffsetZ, maxOffsetZ) + gravityCorrection;
+    newPos = oldWorldPos + /*obj->m_parent->m_worldTransform.rot.Transpose() **/ posDelta;
+    NiPoint3 newPosRot = origWorldPosRot;
 
-        oldWorldPos = target + diff;
+    diff.x = clamp(diff.x, -maxOffsetX, maxOffsetX);
+    diff.y = clamp(diff.y, -maxOffsetY, maxOffsetY);
+    diff.z = clamp(diff.z, -maxOffsetZ, maxOffsetZ);
 
 #if DEBUG
-        logger.Error("diff from newPos: ");
-        ShowPos(diff);
-        //logger.Error("oldWorldPos: ");
-        //ShowPos(oldWorldPos);
+    logger.Error("diff from newPos: ");
+    ShowPos(diff);
+    //logger.Error("oldWorldPos: ");
+    //ShowPos(oldWorldPos);
 #endif
 
-        // move the bones based on the supplied weightings
-        // Convert the world translations into local coordinates
+    auto localDiff = diff;
 
-        NiMatrix43 invRot;
+    // Transform localDiff (which is in world space) to skeleton space
+    localDiff = skeletonObj->m_localTransform.rot * localDiff;
+ 
+    auto scaleMultiplier = 1.0;
+    localDiff.x *= scaleMultiplier;
+    localDiff.y *= scaleMultiplier;
+    localDiff.z *= scaleMultiplier;
 
-        if (IsThereCollision) {
-            invRot = obj->m_parent->m_worldTransform.rot;
-        }
-        else {
-            NiMatrix43 rotateLinear;
-            rotateLinear.SetEulerAngles(rotateLinearX* DEG_TO_RAD,
-                                        rotateLinearY* DEG_TO_RAD,
-                                        rotateLinearZ* DEG_TO_RAD);
-            invRot = rotateLinear * obj->m_parent->m_worldTransform.rot;
-        }
+    auto beforeLocalDiff = localDiff;
 
-        auto localDiff = diff;
-        localDiff = skeletonObj->m_localTransform.rot * localDiff;
-        localDiff.x *= linearX;
-        localDiff.y *= linearY;
-        localDiff.z *= linearZ;
+    // Clamp against settings (which are in skeleton space)
+    localDiff.x = clamp(localDiff.x, -maxOffsetX, maxOffsetX);
+    localDiff.y = clamp(localDiff.y, -maxOffsetY, maxOffsetY);
+    localDiff.z = clamp(localDiff.z, -maxOffsetZ, maxOffsetZ);
 
-        auto rotDiff = localDiff;
-        localDiff = skeletonObj->m_localTransform.rot.Transpose() * localDiff;
+    beforeLocalDiff = beforeLocalDiff - localDiff;
 
-        localDiff = invRot * localDiff;
-        oldWorldPos = diff + target;
+    localDiff.x += (beforeLocalDiff.y * linearSpreadforceXtoY) + (beforeLocalDiff.z * linearSpreadforceXtoZ);
+    localDiff.y += (beforeLocalDiff.x * linearSpreadforceYtoX) + (beforeLocalDiff.z * linearSpreadforceYtoZ);
+    localDiff.z += (beforeLocalDiff.x * linearSpreadforceZtoX) + (beforeLocalDiff.y * linearSpreadforceZtoY);
+
+    // Clamp against settings (which are in skeleton space)
+    localDiff.x = clamp(localDiff.x, -maxOffsetX, maxOffsetX);
+    localDiff.y = clamp(localDiff.y, -maxOffsetY, maxOffsetY);
+    localDiff.z = clamp(localDiff.z, -maxOffsetZ, maxOffsetZ);
+
+    localDiff.x *= linearX;
+    localDiff.y *= linearY;
+    localDiff.z *= linearZ;
+
+    // Store a copy of localDiff for later for transforming rotation motions
+    auto rotDiff = localDiff;
+
+    auto varGravitySupine = CalculateGravitySupine(actor);
+
+    // Transform localDiff to world coordinates
+    localDiff = skeletonObj->m_localTransform.rot.Transpose() * localDiff;
+
+    auto newWorldPos = localDiff;
+
+    newWorldPos.x += varGravitySupine.x * linearX;
+    newWorldPos.y += varGravitySupine.y * linearY;
+    newWorldPos.z += varGravitySupine.z * linearZ;
+
+    oldWorldPos = diff + target;
+
+    // Rotation for transforming gravityBias back to world coordinates
+    auto newRotation = obj->m_parent->m_worldTransform.rot * origWorldRot.Transpose();
+
+    // Create the rotated world space transformation matrix
+    NiMatrix43 rotatedInvWorldTrans = rotateLinear * newRotation.Transpose() * obj->m_parent->m_worldTransform.rot;
+
+    // Transform localDiff to a settings-rotated local space
+    //newWorldPos = rotatedInvWorldTrans * newWorldPos;
+
+    auto newLocalPos = origLocalPos[boneName.c_str()][actor->formID] + (rotatedInvWorldTrans * newWorldPos);
+
+    // Apply gravityCorrection, which will always point downward
+    newLocalPos += rotateLinear * obj->m_parent->m_worldTransform.rot * skeletonObj->m_localTransform.rot.Transpose() * NiPoint3(0, 0, gravityCorrection * linearZ);
+
+    //if (ContainsNoCase(std::string(boneName.c_str()), "Breast_CBP_R_02") ||
+    //    ContainsNoCase(std::string(boneName.c_str()), "Breast_CBP_L_02")
+    //    )
+    //{
+    //    //logger.Error("skeletonObj->m_localTransform.rot.Transpose()\n");
+    //    //ShowRot(skeletonObj->m_localTransform.rot.Transpose());
+    //    //logger.Error("rotatedInvWorldTrans\n");
+    //    //ShowRot(rotatedInvWorldTrans);
+    //    logger.Error("newWorldPos: ");
+    //    ShowPos(newWorldPos);
+    //    logger.Error("newLocalPos: ");
+    //    ShowPos(newLocalPos);
+    //}
+
 #if DEBUG
-        logger.Error("invRot x=10 Transformation:");
-        ShowPos(invRot * NiPoint3(10, 0, 0));
-        logger.Error("invRot y=10 Transformation:");
-        ShowPos(invRot * NiPoint3(0, 10, 0));
-        logger.Error("invRot z=10 Transformation:");
-        ShowPos(invRot * NiPoint3(0, 0, 10));
-        logger.Error("oldWorldPos: ");
-        ShowPos(oldWorldPos);
-        logger.Error("localTransform.pos: ");
-        ShowPos(obj->m_localTransform.pos);
-        logger.Error("localDiff: ");
-        ShowPos(localDiff);
-        logger.Error("rotDiff: ");
-        ShowPos(rotDiff);
+    logger.Error("rotatedInvWorldTrans x=10 Transformation:");
+    ShowPos(rotatedInvWorldTrans * NiPoint3(10, 0, 0));
+    logger.Error("rotatedInvWorldTrans y=10 Transformation:");
+    ShowPos(rotatedInvWorldTrans * NiPoint3(0, 10, 0));
+    logger.Error("rotatedInvWorldTrans z=10 Transformation:");
+    ShowPos(rotatedInvWorldTrans * NiPoint3(0, 0, 10));
+    logger.Error("oldWorldPos: ");
+    ShowPos(oldWorldPos);
+    logger.Error("localTransform.pos: ");
+    ShowPos(obj->m_localTransform.pos);
+    logger.Error("rotDiff: ");
+    ShowPos(rotDiff);
+
 #endif
-        // scale positions from config
-        NiPoint3 newLocalPos = NiPoint3((localDiff.x) + origLocalPos[boneName.c_str()][actor->formID].x,
-                                        (localDiff.y) + origLocalPos[boneName.c_str()][actor->formID].y,
-                                        (localDiff.z) + origLocalPos[boneName.c_str()][actor->formID].z
-        );
-        obj->m_localTransform.pos = newLocalPos;
-        
-        if (absRotX) rotDiff.x = fabs(rotDiff.x);
 
-        rotDiff.x *= rotationalX;
-        rotDiff.y *= rotationalY;
-        rotDiff.z *= rotationalZ;
+    obj->m_localTransform.pos = newLocalPos;
+
+    // Calculate rotational motion
+    if (absRotX) rotDiff.x = fabs(rotDiff.x);
+
+    // Rotational motion scale
+    rotDiff.x *= rotationalX;
+    rotDiff.y *= rotationalY;
+    rotDiff.z *= rotationalZ;
 
 
-//#if DEBUG
-//        logger.Error("localTransform.pos after: ");
-//        ShowPos(obj->m_localTransform.pos);
-//        logger.Error("origLocalPos:");
-//        ShowPos(origLocalPos[boneName.c_str()][actor->formID]);
-//        logger.Error("origLocalRot:");
-//        ShowRot(origLocalRot[boneName.c_str()][actor->formID]);
-//
-//#endif
-        // Do rotation.
-        NiMatrix43 rotateRotation;
-        rotateRotation.SetEulerAngles(rotateRotationX * DEG_TO_RAD,
-                                      rotateRotationY * DEG_TO_RAD,
-                                      rotateRotationZ * DEG_TO_RAD);
+#if DEBUG
+    logger.Error("localTransform.pos after: ");
+    ShowPos(obj->m_localTransform.pos);
+    logger.Error("origLocalPos:");
+    ShowPos(origLocalPos[boneName.c_str()][actor->formID]);
+    logger.Error("origLocalRot:");
+    ShowRot(origLocalRot[boneName.c_str()][actor->formID]);
 
-        NiMatrix43 standardRot;
+#endif
+    // Rotate rotation according to settings.
+    NiMatrix43 rotateRotation;
+    rotateRotation.SetEulerAngles(rotateRotationX * DEG_TO_RAD,
+        rotateRotationY * DEG_TO_RAD,
+        rotateRotationZ * DEG_TO_RAD);
 
-        rotDiff = rotateRotation * rotDiff;
-        standardRot.SetEulerAngles(rotDiff.x, rotDiff.y, rotDiff.z);
-        obj->m_localTransform.rot = standardRot * origLocalRot[boneName.c_str()][actor->formID];
+    NiMatrix43 standardRot;
+
+    rotDiff = rotateRotation * rotDiff;
+    standardRot.SetEulerAngles(rotDiff.x, rotDiff.y, rotDiff.z);
+    // Calculate the new local rot as an offset from the original local rot
+    obj->m_localTransform.rot = standardRot * origLocalRot[boneName.c_str()][actor->formID];
+
+#if DEBUG
+    logger.Error("end update()\n");
+#endif
 
     //logger.Error("end update()\n");
     /*QueryPerformanceCounter(&endingTime);

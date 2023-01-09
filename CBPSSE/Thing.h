@@ -6,20 +6,49 @@
 
 #include "CollisionHub.h"
 #include "config.h"
+#include <shared_mutex>
 
-typedef std::unordered_map<const char*, std::unordered_map<UInt32, NiPoint3>> pos_map;
-typedef std::unordered_map<const char*, std::unordered_map<UInt32, NiMatrix43>> rot_map;
+//using std::shared_mutex;
 
-class Thing {
+typedef concurrency::concurrent_unordered_map<const char*, concurrency::concurrent_unordered_map<UInt32, NiPoint3>> pos_map;
+typedef concurrency::concurrent_unordered_map<const char*, concurrency::concurrent_unordered_map<UInt32, NiMatrix43>> rot_map;
+
+inline void RefreshNode(NiAVObject* node)
+{
+    if (node == nullptr || node->m_name == nullptr)
+        return;
+
+    NiAVObject::NiUpdateData npd;
+    npd.unk00 = nullptr;
+    npd.pCamera = nullptr;
+    npd.flags = 0;
+    npd.unk14 = 0;
+    npd.unk18 = 0;
+    npd.unk20 = 0;
+    npd.unk28 = 0;
+    npd.unk30 = 0;
+    npd.unk38 = 0;
+    node->UpdateWorldData(&npd);
+}
+
+class Thing
+{
     BSFixedString boneName;
     NiPoint3 oldWorldPos;
+    NiPoint3 oldWorldPosRot;
+    //NiPoint3 oldLocalDiff;
     float oldRotZ;
     NiPoint3 velocity;
     clock_t time;
+    NiAVObject* thingObj;
+    bool IsBreastBone;
+    NiMatrix43 firstWorldRot;
+    NiMatrix43 origWorldRot;
+    bool rightSide;
+    Actor* m_actor;
 
 public:
-    Thing(Actor* actor, NiAVObject* obj, BSFixedString& name);
-    ~Thing();
+    bool isEnabled;
 
     float stiffness = 0.5f;
     float stiffness2 = 0.0f;
@@ -49,18 +78,45 @@ public:
     float rotateRotationY = 0.0f;
     float rotateRotationZ = 0.0f;
 
+    float scaleMultiplierX = 1.0f;
+    float scaleMultiplierY = 1.0f;
+    float scaleMultiplierZ = 1.0f;
+
+    float posOffsetX = 0.0f;
+    float posOffsetY = 0.0f;
+
     float timeStep = 0.016f;
 
     bool absRotX = 0;
 
+    float linearSpreadforceXtoY = 0.0f;
+    float linearSpreadforceXtoZ = 0.0f;
+    float linearSpreadforceYtoX = 0.0f;
+    float linearSpreadforceYtoZ = 0.0f;
+    float linearSpreadforceZtoX = 0.0f;
+    float linearSpreadforceZtoY = 0.0f;
+
+    float gravitySupineX = 0.0f;
+    float gravitySupineY = 0.0f;
+    float gravitySupineZ = 0.0f;
+
     static pos_map origLocalPos;
     static rot_map origLocalRot;
+    static rot_map origChestWorldRot;
+
+    // Maps are sorted every edit time, so if it is parallel processing then a high probability of overloading
+    //static shared_mutex thing_map_lock;
+
+    Thing(NiAVObject* obj, BSFixedString& name, Actor* actor);
+    ~Thing();
 
     NiAVObject* IsThingActorValid(Actor* actor);
     void Reset(Actor* actor);
-    void UpdateThing(Actor* actor);	
+    NiPoint3 CalculateGravitySupine(Actor* actor);
+    void StoreOriginalTransforms(Actor* actor);
+    void UpdateThing(Actor* actor);
     void UpdateConfig(configEntry_t& centry);
-    
+
     void ShowPos(NiPoint3& p);
     void ShowRot(NiMatrix43& r);
 
@@ -78,4 +134,17 @@ public:
 
 
 	std::vector<Sphere> CreateThingCollisionSpheres(Actor * actor, std::string nodeName, float nodescale);
+
+    static inline bool ContainsNoCase(std::string str, std::string ministr)
+    {
+        std::transform(str.begin(), str.end(), str.begin(), ::tolower);
+        std::transform(ministr.begin(), ministr.end(), ministr.begin(), ::tolower);
+
+        if (str.find(ministr) != std::string::npos)
+        {
+            return true;
+        }
+        else
+            return false;
+    }
 };

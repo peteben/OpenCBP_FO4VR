@@ -30,68 +30,68 @@ void MessageHandler(F4SEMessagingInterface::Message * msg)
 {
     switch (msg->type)
     {
-        case F4SEMessagingInterface::kMessage_GameDataReady:
-        {
-            logger.Info("kMessage_GameDataReady\n");
-            // Load initial config
-            logger.Error("Loading Config");
-            LoadConfig();
-            LoadCollisionConfig();
-            logger.Error("Hooking Game");
-            DoHook();
-            logger.Error("CBPC Load Complete\n");
-        }
-        break;
-        case F4SEMessagingInterface::kMessage_GameLoaded:
-        {
-            logger.Info("kMessage_GameLoaded\n");
-        }
-        break;
-        case F4SEMessagingInterface::kMessage_NewGame:
-        {
-            logger.Info("kMessage_NewGame\n");
-        }
-        break;
-        case F4SEMessagingInterface::kMessage_PreLoadGame:
-        {
-            logger.Info("kMessage_PreLoadGame\n");
-        }
-        break;
-        case F4SEMessagingInterface::kMessage_PostLoad:
-        {
-            logger.Info("kMessage_PostLoad\n");
-        }
-        break;
-        case F4SEMessagingInterface::kMessage_PostPostLoad:
-        {
-            logger.Info("kMessage_PostPostLoad\n");
-        }
-        break;
-        case F4SEMessagingInterface::kMessage_PostLoadGame:
-        {
-            logger.Info("kMessage_PostLoadGame\n");
-        }
-        break;
-        case F4SEMessagingInterface::kMessage_PreSaveGame:
-        {
-            logger.Info("kMessage_PreSaveGame\n");
-        }
-        break;
-        case F4SEMessagingInterface::kMessage_PostSaveGame:
-        {
-            logger.Info("kMessage_PostSaveGame\n");
-        }
-        break;
-        case F4SEMessagingInterface::kMessage_DeleteGame:
-        {
-            logger.Info("kMessage_DeleteGame\n");
-        }
-        break;
-        case F4SEMessagingInterface::kMessage_InputLoaded:
-        {
-            logger.Info("kMessage_InputLoaded\n");
-        }
-        break;
+    case F4SEMessagingInterface::kMessage_GameDataReady:
+    {
+        logger.Info("kMessage_GameDataReady\n");
+        // Load initial config
+        logger.Error("Loading Config");
+        LoadConfig();
+        LoadCollisionConfig();
+        logger.Error("Hooking Game");
+        DoHook();
+        logger.Error("CBP Load Complete\n");
+    }
+    break;
+    case F4SEMessagingInterface::kMessage_GameLoaded:
+    {
+        logger.Info("kMessage_GameLoaded\n");
+    }
+    break;
+    case F4SEMessagingInterface::kMessage_NewGame:
+    {
+        logger.Info("kMessage_NewGame\n");
+    }
+    break;
+    case F4SEMessagingInterface::kMessage_PreLoadGame:
+    {
+        logger.Info("kMessage_PreLoadGame\n");
+    }
+    break;
+    case F4SEMessagingInterface::kMessage_PostLoad:
+    {
+        logger.Info("kMessage_PostLoad\n");
+    }
+    break;
+    case F4SEMessagingInterface::kMessage_PostPostLoad:
+    {
+        logger.Info("kMessage_PostPostLoad\n");
+    }
+    break;
+    case F4SEMessagingInterface::kMessage_PostLoadGame:
+    {
+        logger.Info("kMessage_PostLoadGame\n");
+    }
+    break;
+    case F4SEMessagingInterface::kMessage_PreSaveGame:
+    {
+        logger.Info("kMessage_PreSaveGame\n");
+    }
+    break;
+    case F4SEMessagingInterface::kMessage_PostSaveGame:
+    {
+        logger.Info("kMessage_PostSaveGame\n");
+    }
+    break;
+    case F4SEMessagingInterface::kMessage_DeleteGame:
+    {
+        logger.Info("kMessage_DeleteGame\n");
+    }
+    break;
+    case F4SEMessagingInterface::kMessage_InputLoaded:
+    {
+        logger.Info("kMessage_InputLoaded\n");
+    }
+    break;
 
     }
 }
@@ -149,16 +149,16 @@ extern "C"
 
         if (g_papyrus)
             g_papyrus->Register(RegisterFuncs);
-        
+
         g_messagingInterface = (F4SEMessagingInterface*)f4se->QueryInterface(kInterface_Messaging);
         if (!g_messagingInterface)
         {
             logger.Error("Couldn't get messaging interface");
             return false;
         }
-        
-        g_messagingInterface->RegisterListener(g_pluginHandle, "F4SE", MessageHandler); 
-        
+
+        g_messagingInterface->RegisterListener(g_pluginHandle, "F4SE", MessageHandler);
+
         return true;
     }
 };
@@ -173,6 +173,7 @@ BOOL WINAPI DllMain(
     _In_ HINSTANCE hinstDLL,
     _In_ DWORD     fdwReason,
     _In_ LPVOID    lpvReserved
-) {
+)
+{
     return true;
 }

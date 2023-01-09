@@ -1,5 +1,9 @@
 #pragma once
+#pragma warning(disable : 5040)
+
 #define DEBUG
+
+//#define SIMPLE_BENCHMARK
 
 #include <cstdlib>
 #include <cstdio>
@@ -20,7 +24,10 @@
 #include <functional>
 
 #include <unordered_set>
-#include <unordered_map>
+
+#include <concurrent_unordered_map.h>
+#include <concurrent_vector.h>
+#include <ppl.h>
 
 #include "ActorEntry.h"
 #include "ActorUtils.h"
@@ -46,13 +53,25 @@
 using actorUtils::IsActorMale;
 using actorUtils::IsActorTrackable;
 using actorUtils::IsActorValid;
+using actorUtils::BuildActorKey;
 using actorUtils::BuildConfigForActor;
 using actorUtils::GetActorRaceEID;
 
-extern F4SETaskInterface *g_task;
+std::atomic<TESObjectCELL*> currCell = nullptr;
+
+extern F4SETaskInterface* g_task;
+
+#ifdef SIMPLE_BENCHMARK
+bool firsttimeloginit = true;
+LARGE_INTEGER startingTime, endingTime, elapsedMicroseconds;
+LARGE_INTEGER frequency;
+LARGE_INTEGER totaltime;
+int debugtimelog_framecount = 1;
+#endif
 
 //void UpdateWorldDataToChild(NiAVObject)
-void DumpTransform(NiTransform t) {
+void DumpTransform(NiTransform t)
+{
     Console_Print("%8.2f %8.2f %8.2f", t.rot.data[0][0], t.rot.data[0][1], t.rot.data[0][2]);
     Console_Print("%8.2f %8.2f %8.2f", t.rot.data[1][0], t.rot.data[1][1], t.rot.data[1][2]);
     Console_Print("%8.2f %8.2f %8.2f", t.rot.data[2][0], t.rot.data[2][1], t.rot.data[2][2]);
@@ -62,17 +81,21 @@ void DumpTransform(NiTransform t) {
 }
 
 
-bool visitObjects(NiAVObject  *parent, std::function<bool(NiAVObject*, int)> functor, int depth = 0) {
+bool visitObjects(NiAVObject* parent, std::function<bool(NiAVObject*, int)> functor, int depth = 0)
+{
     if (!parent) return false;
     NiNode * node = parent->GetAsNiNode();
-    if (node) {
+    if (node)
+    {
         if (functor(parent, depth))
             return true;
 
-        for (UInt32 i = 0; i < node->m_children.m_emptyRunStart; i++) {
-            NiAVObject * object = node->m_children.m_data[i];
-            if (object) {
-                if (visitObjects(object, functor, depth+1))
+        for (UInt32 i = 0; i < node->m_children.m_emptyRunStart; i++)
+        {
+            NiAVObject* object = node->m_children.m_data[i];
+            if (object)
+            {
+                if (visitObjects(object, functor, depth + 1))
                     return true;
             }
         }
@@ -83,14 +106,16 @@ bool visitObjects(NiAVObject  *parent, std::function<bool(NiAVObject*, int)> fun
     return false;
 }
 
-std::string spaces(int n) {
-    auto s = std::string(n , ' ');
+std::string spaces(int n)
+{
+    auto s = std::string(n, ' ');
     return s;
 }
 
-bool printStuff(NiAVObject *avObj, int depth) {
+bool printStuff(NiAVObject * avObj, int depth)
+{
     std::string sss = spaces(depth);
-    const char *ss = sss.c_str();
+    const char * ss = sss.c_str();
     //logger.info("%savObj Name = %s, RTTI = %s\n", ss, avObj->m_name, avObj->GetRTTI()->name);
 
     //NiNode *node = avObj->GetAsNiNode();
@@ -101,8 +126,10 @@ bool printStuff(NiAVObject *avObj, int depth) {
 }
 
 template<class T>
-inline void safe_delete(T*& in) {
-    if (in) {
+inline void safe_delete(T*& in)
+{
+    if (in)
+    {
         delete in;
         in = NULL;
     }
@@ -110,36 +137,27 @@ inline void safe_delete(T*& in) {
 
 
 
-std::unordered_map<UInt32, SimObj> actors;  // Map of Actor (stored as form ID) to its Simulation Object
-TESObjectCELL *curCell = nullptr;
+concurrency::concurrent_unordered_map<UInt32, SimObj> actors;  // Map of Actor (stored as form ID) to its Simulation Object
+TESObjectCELL * curCell = nullptr;
 
 
-void UpdateActors() {
-    //LARGE_INTEGER startingTime, endingTime, elapsedMicroseconds;
-    //LARGE_INTEGER frequency;
+void UpdateActors()
+{
+#ifdef SIMPLE_BENCHMARK
+    if (firsttimeloginit)
+    {
+        firsttimeloginit = false;
+        totaltime.QuadPart = 0;
 
-    //QueryPerformanceFrequency(&frequency);
-    //QueryPerformanceCounter(&startingTime);
+    }
+
+    QueryPerformanceFrequency(&frequency);
+    QueryPerformanceCounter(&startingTime);
+#endif
 
     // We scan the cell and build the list every time - only look up things by ID once
     // we retain all state by actor ID, in a map - it's cleared on cell change
-    actorEntries.clear();
-
-
-	//if (tuningModeCollision != 0)
-	//{
-	//	frameCount++;
-	//	if (frameCount % (120 * tuningModeCollision) == 0)
-	//	{
-	//		loadMasterConfig();
-	//		loadCollisionConfig();
-	//		loadExtraCollisionConfig();
-
-	//		actors.clear();
-	//	}
-	//	if (frameCount >= 1000000)
-	//		frameCount = 0;
-	//}
+    concurrency::concurrent_vector<ActorEntry> actorEntries;
 
     //logger.error("scan Cell\n");
     NiPoint3 actorPos;
@@ -152,28 +170,32 @@ void UpdateActors() {
     auto cell = player->parentCell;
     if (!cell) goto FAILED;
 
-	callCount = 0;
-
     float xLow = 9999999.0; 
     float xHigh = -9999999.0;
     float yLow = 9999999.0;
     float yHigh = -9999999.0;
     float zLow = 9999999.0;
     float zHigh = -9999999.0;
-
-    if (cell != curCell) {
+    
+    if (cell != curCell)
+    {
         logger.Error("cell change %d\n", cell->formID);
         curCell = cell;
         actors.clear();
         actorEntries.clear();
-    } else {
+    }
+    else
+    {
         // Attempt to get cell's objects
-        for (int i = 0; i < cell->objectList.count; i++) {
+        for (UInt32 i = 0; i < cell->objectList.count; i++)
+        {
             auto ref = cell->objectList[i];
-            if (ref) {
+            if (ref)
+            {
                 // Attempt to get actors
                 auto actor = DYNAMIC_CAST(ref, TESObjectREFR, Actor);
-                if (actor && actor->unkF0) {
+                if (actor && actor->unkF0)
+                {
 
                     if (actor->unkF0->rootNode)
                     {
@@ -198,23 +220,27 @@ void UpdateActors() {
                         if (zHigh < actorPos.z)
                             zHigh = actorPos.z;
                     }
-
-                    // Find if actors is already being tracked
-                    auto soIt = actors.find(actor->formID);
-                    if (soIt == actors.end() && IsActorTrackable(actor)) {
-                        //logger.Info("Tracking Actor with form ID %08x in cell %ld, race is %s, gender is %d\n", 
-                        //    actor->formID, actor->parentCell->formID,
-                        //    actor->race->editorId.c_str(),
-                        //    IsActorMale(actor));
-                        // Make SimObj and place new element in Things
-                        auto obj = SimObj(actor, config);
-                        if (IsActorValid(actor)) {
-                            actors.emplace(actor->formID, obj);
-                            actorEntries.emplace_back(ActorEntry{ actor->formID, actor });
+                    
+                    // If actor is not being tracked yet
+                    if (actors.count(actor->formID) == 0)
+                    {
+                        // If actor should not be tracked, don't add it.
+                        if (IsActorTrackable(actor))
+                        {
+                            //logger.Info("Tracking Actor with form ID %08x in cell %ld, race is %s, gender is %d\n", 
+                            //    actor->formID, actor->parentCell->formID,
+                            //    actor->race->editorId.c_str(),
+                            //    IsActorMale(actor));
+                            // Make SimObj and place new element in Things
+                            auto obj = SimObj(actor);
+                            actors.insert(std::make_pair(actor->formID, obj));
+                            actorEntries.push_back(ActorEntry{ actor->formID, actor });
                         }
                     }
-                    else if (IsActorValid(actor)) {
-                        actorEntries.emplace_back(ActorEntry{ actor->formID, actor });
+                    else if (IsActorValid(actor))
+                    {
+                        // If already tracked then add to entry list for this frame
+                        actorEntries.push_back(ActorEntry{ actor->formID, actor });
                     }
                 }
             }
@@ -296,66 +322,122 @@ void UpdateActors() {
 
     // Reload config
     static int count = 0;
-    if (configReloadCount && count++ > configReloadCount) {
+    if (configReloadCount && count++ > configReloadCount)
+    {
         count = 0;
         auto reloadActors = LoadConfig();
-        for (auto& a : actorEntries) {
-            auto objIterator = actors.find(a.id);
-            if (objIterator == actors.end()) {
+        for (auto& a : actorEntries)
+        {
+            auto actorsIterator = actors.find(a.id);
+            if (actorsIterator == actors.end())
+            {
                 //logger.error("Sim Object not found in tracked actors\n");
             }
-            else {
-                objIterator->second.AddBonesToThings(a.actor, boneNames);
-                objIterator->second.UpdateConfig(config);
+            else
+            {
+                auto& simObj = actorsIterator->second;
+                auto key = BuildActorKey(a.actor);
+                auto& composedConfig = BuildConfigForActor(a.actor, key);
+
+                simObj.SetActorKey(key);
+                simObj.AddBonesToThings(a.actor, boneNames);
+                simObj.UpdateConfigs(composedConfig);
             }
         }
 
         // Clear actors
-        if (reloadActors) {
+        if (reloadActors)
+        {
             actors.clear();
             actorEntries.clear();
         }
     }
 
-    //logger.error("Updating %d entities\n", actorEntries.size());
-    for (auto &a : actorEntries) {
-        auto objIterator = actors.find(a.id);
-        if (objIterator == actors.end()) {
+    for (auto& a : actorEntries)
+    {
+        auto actorsIterator = actors.find(a.id);
+        if (actorsIterator == actors.end())
+        {
             //logger.error("Sim Object not found in tracked actors\n");
         }
-        else {
-            config_t composedConfig = BuildConfigForActor(a.actor);
-            
-            auto &simObj = objIterator->second;
-
+        else
+        {
+            auto& simObj = actorsIterator->second;
 
             SimObj::Gender gender = IsActorMale(a.actor) ? SimObj::Gender::Male : SimObj::Gender::Female;
 
-            // Pointer comparison is good enough?
-            // OR check if gender and/or race have changed
-            if (simObj.IsBound()) {
+            // Check if gender and/or race have changed
+            if (simObj.IsBound())
+            {
                 if (gender != simObj.GetGender() ||
-                    GetActorRaceEID(a.actor) != simObj.GetRaceEID()) {
-                    logger.Info("%s: Reset sim object\n", __func__);
+                    GetActorRaceEID(a.actor) != simObj.GetRaceEID())
+                {
+                    logger.Info("UpdateActors: Reset sim object\n");
                     simObj.Reset();
                 }
             }
+            else
+            {
+                auto key = BuildActorKey(a.actor);
+                auto& composedConfig = BuildConfigForActor(a.actor, key);
 
-            if (simObj.IsBound()) {
-                simObj.Update(a.actor);
-            }
-            else {
+                //logger.Error("UpdateActors: Setting key for actor %x...\n", a.id);
+                simObj.SetActorKey(key);
                 simObj.Bind(a.actor, boneNames, composedConfig);
             }
         }
     }
 
+    concurrency::parallel_for_each(actorEntries.begin(), actorEntries.end(), [&](const auto& a)
+        {
+            auto actorsIterator = actors.find(a.id);
+            if (actorsIterator == actors.end())
+            {
+                //logger.error("Sim Object not found in tracked actors\n");
+            }
+            else
+            {
+                auto& simObj = actorsIterator->second;
+
+                if (simObj.IsBound())
+                {
+                    UInt64 key = BuildActorKey(a.actor);
+                    UInt64 simObjKey = simObj.GetActorKey();
+
+                    // Detect changes in actor+slots combination
+                    if (key != simObjKey)
+                    {
+                        logger.Error("UpdateActors: Key change detected for actor %08x.\n", a.actor->formID);
+                        simObj.SetActorKey(key);
+                        auto& composedConfig = BuildConfigForActor(a.actor, key);
+                        simObj.UpdateConfigs(composedConfig);
+                    }
+                    simObj.Update(a.actor);
+                }
+            }
+        });
+
+
+
+#ifdef SIMPLE_BENCHMARK
+    QueryPerformanceCounter(&endingTime);
+    elapsedMicroseconds.QuadPart = endingTime.QuadPart - startingTime.QuadPart;
+    elapsedMicroseconds.QuadPart *= 1000000000LL;
+    elapsedMicroseconds.QuadPart /= frequency.QuadPart;
+    //long long avg = elapsedMicroseconds.QuadPart / callCount;
+    totaltime.QuadPart += elapsedMicroseconds.QuadPart;
+    //LOG_ERR("Collider Check Call Count: %d - Update Time = %lld ns", callCount, elapsedMicroseconds.QuadPart);
+    if (debugtimelog_framecount % 1000 == 0)
+    {
+        logger.Error("Average Update Time in 1000 frame = %lld ns\n", totaltime.QuadPart / debugtimelog_framecount);
+        totaltime.QuadPart = 0;
+        debugtimelog_framecount = 0;
+        //totalcallcount = 0;
+    }
+    debugtimelog_framecount++;
+#endif
+
 FAILED:
     return;
-    //QueryPerformanceCounter(&endingTime);
-    //elapsedMicroseconds.QuadPart = endingTime.QuadPart - startingTime.QuadPart;
-    //elapsedMicroseconds.QuadPart *= 1000000000LL;
-    //elapsedMicroseconds.QuadPart /= frequency.QuadPart;
-    //logger.info("Update Time = %lld ns\n", elapsedMicroseconds.QuadPart);
 }
 
