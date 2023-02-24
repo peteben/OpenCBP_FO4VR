@@ -1,3 +1,3 @@
 #include "ActorEntry.h"
 
-std::vector<ActorEntry> actorEntries;
+concurrency::concurrent_vector<ActorEntry> actorEntries;

@@ -175,6 +175,7 @@
     <ClInclude Include="ActorEntry.h" />
     <ClInclude Include="ActorUtils.h" />
     <ClInclude Include="Collision.h" />
+    <ClInclude Include="CollisionConfig.h" />
     <ClInclude Include="CollisionHub.h" />
     <ClInclude Include="INIReader.h" />
     <ClInclude Include="PapyrusOCBP.h" />
@@ -206,6 +207,7 @@
     <ClCompile Include="ActorEntry.cpp" />
     <ClCompile Include="ActorUtils.cpp" />
     <ClCompile Include="Collision.cpp" />
+    <ClCompile Include="CollisionConfig.cpp" />
     <ClCompile Include="CollisionHub.cpp" />
     <ClCompile Include="PapyrusOCBP.cpp" />
     <ClCompile Include="SimObj.cpp" />

@@ -5,40 +5,29 @@
 #include "f4se\PapyrusActor.h"
 
 
-extern int gridsize;
-extern int a;
-extern int b;
-extern int c;
-
-extern long hashSize;
-
-extern std::vector<Collision> otherColliders;
 
 
+extern long callCount;
 
-extern int callCount;
+bool CreateActorColliders(Actor * actor, concurrency::concurrent_unordered_map<std::string, Collision> &actorCollidersList);
 
-
-void CreateOtherColliders();
-
-void UpdateColliderPositions(std::vector<Collision> &colliderList);
-
+void UpdateColliderPositions(concurrency::concurrent_unordered_map<std::string, Collision> &colliderList, concurrency::concurrent_unordered_map<std::string, NiPoint3> NodeCollisionSyncList);
 
 
 struct Partition
 {
-	std::vector<Collision> partitionCollisions;
+	concurrency::concurrent_vector<Collision> partitionCollisions;
 };
 
-typedef std::unordered_map<long, Partition> PartitionMap;
+typedef concurrency::concurrent_unordered_map<int, Partition> PartitionMap;
 
 extern PartitionMap partitions;
 
-long GetHashIdFromPos(NiPoint3 pos, long size);
 
-std::vector<long> GetHashIdsFromPos(NiPoint3 pos, float radius, long size);
+
+int GetHashIdFromPos(NiPoint3 pos);
+
+std::vector<int> GetHashIdsFromPos(NiPoint3 pos, float radiusplus);
 
 bool CheckPelvisArmor(Actor* actor);
-
-
 

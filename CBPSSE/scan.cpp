@@ -61,6 +61,8 @@ std::atomic<TESObjectCELL*> currCell = nullptr;
 
 extern F4SETaskInterface* g_task;
 
+concurrency::concurrent_unordered_map<UInt32, SimObj> actors;  // Map of Actor (stored as form ID) to its Simulation Object
+
 #ifdef SIMPLE_BENCHMARK
 bool firsttimeloginit = true;
 LARGE_INTEGER startingTime, endingTime, elapsedMicroseconds;
@@ -134,10 +136,34 @@ inline void safe_delete(T*& in)
         in = NULL;
     }
 }
+bool compareActorEntries(const ActorEntry& entry1, const ActorEntry& entry2)
+{
+	return entry1.actorDistSqr < entry2.actorDistSqr;
+}
 
+//bool ActorIsInAngle(Actor* actor, float originalHeading, NiPoint3 cameraPosition)
+//{
+//	if (actor == (*g_player))
+//		return true;
+//
+//	if (actorAngle >= 360)
+//		return true;
+//
+//	if (actorAngle <= 0 && actor != (*g_player))
+//	{
+//		return false;
+//	}
+//
+//	NiPoint3 position = actor->unkF0->rootNode->m_worldTransform.pos;
+//
+//	float heading = 0;
+//	float attitude = 0;
+//	GetAttitudeAndHeadingFromTwoPoints(cameraPosition, NiPoint3(position.x, position.y, cameraPosition.z), attitude, heading);
+//	heading = heading * 57.295776f;
+//
+//	return AngleDifference(originalHeading, heading) <= (actorAngle * 0.5f);
+//}
 
-
-concurrency::concurrent_unordered_map<UInt32, SimObj> actors;  // Map of Actor (stored as form ID) to its Simulation Object
 TESObjectCELL * curCell = nullptr;
 
 
@@ -157,9 +183,18 @@ void UpdateActors()
 
     // We scan the cell and build the list every time - only look up things by ID once
     // we retain all state by actor ID, in a map - it's cleared on cell change
-    concurrency::concurrent_vector<ActorEntry> actorEntries;
+    actorEntries.clear();
 
     //logger.error("scan Cell\n");
+	if (!(*g_player) || !(*g_player)->unkF0)
+	{
+		return;
+	}
+		
+	TESObjectCELL* cell = (*g_player)->parentCell;
+	if (!cell)
+		return;
+		
     NiPoint3 actorPos;
 
     // If no player then return
@@ -207,18 +242,6 @@ void UpdateActors()
                             continue;
                         }
 
-                        if (xLow > actorPos.x)
-                            xLow = actorPos.x;
-                        if (xHigh < actorPos.x)
-                            xHigh = actorPos.x;
-                        if (yLow > actorPos.y)
-                            yLow = actorPos.y;
-                        if (yHigh < actorPos.y)
-                            yHigh = actorPos.y;
-                        if (zLow > actorPos.z)
-                            zLow = actorPos.z;
-                        if (zHigh < actorPos.z)
-                            zHigh = actorPos.z;
                     }
                     
                     // If actor is not being tracked yet
@@ -233,13 +256,15 @@ void UpdateActors()
                             //    IsActorMale(actor));
                             // Make SimObj and place new element in Things
                             auto obj = SimObj(actor);
+							obj.actorDistSqr = actorDistSqr;
                             actors.insert(std::make_pair(actor->formID, obj));
-                            actorEntries.push_back(ActorEntry{ actor->formID, actor });
+                            actorEntries.push_back(ActorEntry{ actor->formID, actor, actorDistSqr, actorDistSqr <= actorDistance });
                         }
                     }
-                    else if (IsActorValid(actor))
+                    else if (IsActorValid(actor) && isValid)
                     {
                         // If already tracked then add to entry list for this frame
+						actors[actor->formID].actorDistSqr = actorDistSqr;
                         actorEntries.push_back(ActorEntry{ actor->formID, actor });
                     }
                 }
@@ -247,35 +272,15 @@ void UpdateActors()
         }
     }
 
-    // If valid actorPos?
-    if (xLow < 9999999 && yLow < 9999999 && zLow < 9999999 && xHigh > -9999999 && yHigh > -9999999 && zHigh > -9999999)
-    {
-        xLow -= 100.0;
-        yLow -= 100.0;
-        zLow -= 100.0;
-        xHigh += 100.0;
-        yHigh += 100.0;
-        zHigh += 100.0;
 
-        //SaveLastColliderPositions();
+    partitions.clear();
 
-        otherColliders.clear();
+    //logger.Info("Starting collider hashing\n");
 
-        CreateOtherColliders();
 
-        UpdateColliderPositions(otherColliders);
-
-        //LoadLastColliderPositions();
-
-        //Spatial Hashing
-        hashSize = floor((xHigh - xLow) / gridsize) * floor((yHigh - yLow) / gridsize) * floor((zHigh - zLow) / gridsize);
-
-        /*if (frameCount % 45 == 0)
-        LOG_INFO("Hashsize=%d", hashSize);*/
-
-        partitions.clear();
-
-        //logger.Info("Starting collider hashing\n");
+	NiPoint3 playerPos = (*g_player)->unkF0->rootNode->m_worldTransform.pos;
+	long colliderSphereCount = 0;
+	long colliderCapsuleCount = 0;
 
         std::vector<long> ids;
         std::vector<long> hashIdList;
@@ -304,7 +309,6 @@ void UpdateActors()
         }
         //LOG_INFO("End of collider hashing");
         //LOG_INFO("Partitions size=%d", partitions.size());
-    }
 
     //static bool done = false;
     //if (!done && player->loadedState->node) {

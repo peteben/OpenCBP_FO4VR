@@ -122,18 +122,27 @@ public:
 
 	//Performance skip
 	int skipFramesCount = 0;
-	int skipFramesPelvisCount = 0;
+
+    bool ActorCollisionsEnabled = true;
+    bool GroundCollisionEnabled = true;
+    bool VirtualCollisionEnabled = false;
+
 	bool collisionOnLastFrame = false;
 
+    std::vector<std::string> IgnoredCollidersList;
+    std::vector<std::string> IgnoredSelfCollidersList;
+    bool IgnoreAllSelfColliders = false;
 
-	NiPoint3 lastColliderPosition = zeroVector;
+	NiPoint3 lastColliderPosition = NiPoint3(0, 0, 0);
 
 	std::vector<Sphere> thingCollisionSpheres;
+    std::vector<Capsule> thingCollisionCapsules;
 
 	std::vector<Collision> ownColliders;
 
 
-	std::vector<Sphere> CreateThingCollisionSpheres(Actor * actor, std::string nodeName, float nodescale);
+    std::vector<Sphere> CreateThingCollisionSpheres(Actor* actor, std::string nodeName);
+    std::vector<Capsule> CreateThingCollisionCapsules(Actor* actor, std::string nodeName);
 
     static inline bool ContainsNoCase(std::string str, std::string ministr)
     {
@@ -147,4 +156,19 @@ public:
         else
             return false;
     }
+
+    static float remap(float value, float start1, float stop1, float start2, float stop2)
+    {
+        return start2 + (stop2 - start2) * ((value - start1) / (stop1 - start1));
+    }
+
+    //Extra variables
+    float groundPos = -10000.0f;
+    NiPoint3 collisionBuffer = emptyPoint;
+    NiPoint3 collisionSync = emptyPoint;
+    NiPoint3 collisionInertia = emptyPoint;
+    NiPoint3 collisionInertiaRot = emptyPoint;
+    float multiplerInertia = 0.0f;
+    float multiplerInertiaRot = 0.0f;
+    CollisionConfigs CollisionConfig;
 };

@@ -2,375 +2,213 @@
 #include "f4se_common/Utilities.h"
 
 #include "CollisionHub.h"
+#include "hash.h"
 #include "log.h"
 #include "Utility.hpp"
 
-std::vector<Collision> otherColliders;
 PartitionMap partitions;
 
 
-
-int a = 1319;
-int b = 2083;
-int c = 3169;
-long hashSize;
-
 //debug variable
-int callCount = 0;
-
-void CreateOtherColliders()
+long callCount = 0;
+bool CreateActorColliders(Actor * actor, concurrency::concurrent_unordered_map<std::string, Collision> &actorCollidersList)
 {
-	/*LARGE_INTEGER startingTime, endingTime, elapsedMicroseconds;
-	LARGE_INTEGER frequency;
-
-	QueryPerformanceFrequency(&frequency);
-	QueryPerformanceCounter(&startingTime);
-	LOG("CreateOtherColliders() start");*/
-	//int otherActorCount = 0;
-
+	bool GroundCollisionEnabled = false;
 	NiNode* mostInterestingRoot;
 	//logger.Info("ActorCount: %d\n", actorEntries.size());
-	for (int i = 0; i < actorEntries.size(); i++)
+	if (actor && actor->unkF0 && actor->unkF0->rootNode)
 	{
-		// loadedState = actor->unkF0;
-			if (actorEntries[i].actor && actorEntries[i].actor->unkF0 && actorEntries[i].actor->unkF0->rootNode)
-			{
-				mostInterestingRoot = actorEntries[i].actor->unkF0->rootNode;
-			}
-			else
-				continue;
+    	mostInterestingRoot = actor->unkF0->rootNode;
+	}
+  	else
+	{
+    	return false;
+	}
+	
+	auto actorRef = DYNAMIC_CAST(actor, Actor, TESObjectREFR);
+	float actorBaseScale = 1.0f;
+	//if (actorRef)
+	//{
+	//	actorBaseScale = CALL_MEMBER_FN(actorRef, GetBaseScale)();
+	//}
+	
+	std::vector<ConfigLine>* ColliderNodesListPtr;
+	
+	SpecificNPCConfig snc;
 
-		auto actorRef = DYNAMIC_CAST(actorEntries[i].actor, Actor, TESObjectREFR);
-
-		//auto npcWeight = CALL_MEMBER_FN(actorRef, GetWeight)();
-
-		std::vector<ConfigLine>* ColliderNodesListPtr;
-
-		const char * actorrefname = "";
-		std::string actorRace = "";
-
-		if (actorEntries[i].actor->formID == 0x14) //If Player
+	if (actor)
+	{
+		if (GetSpecificNPCConfigForActor(actor))
 		{
-			actorrefname = "Player";
-		}
-		else
-		{
-			actorrefname = CALL_MEMBER_FN(actorRef, GetReferenceName)();
-		}
-
-		if (actorEntries[i].actor->race)
-		{
-			actorRace = std::string(actorEntries[i].actor->race->fullName.name.c_str());
-
-			ColliderNodesListPtr = &ColliderNodesList;
+			ColliderNodesListPtr = &(snc.ColliderNodesList);
 		}
 		else
 		{
 			ColliderNodesListPtr = &ColliderNodesList;
 		}
+	}
+	else
+	{
+		ColliderNodesListPtr = &ColliderNodesList;
+	}
 
-		for(int j=0; j<ColliderNodesListPtr->size(); j++)
+	//std::shared_mutex CH_read_lock;
+
+	concurrency::parallel_for (size_t(0), ColliderNodesListPtr->size(), [&](size_t j)
+	{
+		if (ColliderNodesListPtr->at(j).NodeName.compare(GroundReferenceBone) == 0) //detecting NPC Root [Root] node for ground collision
 		{
-
-			BSFixedString fs = ReturnUsableString(ColliderNodesListPtr->at(j).NodeName);
+			GroundCollisionEnabled = true;
+		}
+		else
+		{
+			BSFixedString fs(ColliderNodesListPtr->at(j).NodeName.c_str());
+			//CH_read_lock.lock();
 			NiAVObject* node = mostInterestingRoot->GetObjectByName(&fs);
-
+			//CH_read_lock.unlock();
 			if (node)
 			{
-				Collision newCol = Collision::Collision(node, ColliderNodesListPtr->at(j).CollisionSpheres);
-				newCol.colliderActor = actorEntries[i].actor;
+				Collision newCol = Collision::Collision(node, ColliderNodesListPtr->at(j).CollisionSpheres, ColliderNodesListPtr->at(j).CollisionCapsules);
+				newCol.colliderActor = actor;
 				newCol.colliderNodeName = ColliderNodesListPtr->at(j).NodeName;
-				otherColliders.emplace_back(newCol);
+				newCol.actorBaseScale = actorBaseScale;
+
+				actorCollidersList.insert(std::make_pair(ColliderNodesListPtr->at(j).NodeName, newCol));
 			}
 		}
-	}
-	//printMessageInt("Actor has others around them: ", otherActorCount);
-	//printMessageInt("OtherColliderCount found Total: ", otherColliders.size());
-	/*QueryPerformanceCounter(&endingTime);
-	elapsedMicroseconds.QuadPart = endingTime.QuadPart - startingTime.QuadPart;
-	elapsedMicroseconds.QuadPart *= 1000000000LL;
-	elapsedMicroseconds.QuadPart /= frequency.QuadPart;
-	LOG("CreateOtherColliders() Update Time = %lld ns\n", elapsedMicroseconds.QuadPart);*/
+	});
+	return GroundCollisionEnabled;
 }
 
-//Unfortunately this doesn't work.
-//bool CheckPelvisArmor(Actor* actor)
-//{
-//	return papyrusActor::GetWornForm(actor, 49) != NULL && papyrusActor::GetWornForm(actor, 52) != NULL && papyrusActor::GetWornForm(actor, 53) != NULL && papyrusActor::GetWornForm(actor, 54) != NULL && papyrusActor::GetWornForm(actor, 56) != NULL && papyrusActor::GetWornForm(actor, 58) != NULL;
-//}
 
-void UpdateColliderPositions(std::vector<Collision> &colliderList)
+void UpdateColliderPositions(concurrency::concurrent_unordered_map<std::string, Collision> &colliderList, concurrency::concurrent_unordered_map<std::string, NiPoint3> NodeCollisionSyncList)
 {
-	bool skeletonFound = false;
-	for (int i = 0; i < colliderList.size(); i++)
+	concurrency::parallel_for_each(colliderList.begin(), colliderList.end(), [&](auto& collider)
 	{
-		for (int j = 0; j < colliderList[i].collisionSpheres.size(); j++)
+		NiPoint3 VirtualOffset = emptyPoint;
+
+		if (NodeCollisionSyncList.find(collider.second.colliderNodeName) != NodeCollisionSyncList.end())
+			VirtualOffset = NodeCollisionSyncList[collider.second.colliderNodeName];
+
+		float colliderNodescale = 1.0f - ((1.0f - (collider.second.CollisionObject->m_worldTransform.scale / collider.second.actorBaseScale)));
+
+		for (int j = 0; j < collider.second.collisionSpheres.size(); j++)
 		{
-			auto skeletonObj = colliderList[i].CollisionObject;
-			skeletonFound = false;
-			while (skeletonObj->m_parent)
-			{
-				if (skeletonObj->m_parent->m_name == BSFixedString("skeleton.nif")) {
-					skeletonObj = skeletonObj->m_parent;
-					skeletonFound = true;
-					//logger.Info("Skeleton found!\n");
-					break;
-				}
-				skeletonObj = skeletonObj->m_parent;
-			}
-			if (skeletonFound == false) {
-				continue;
-			}
-
-			colliderList[i].collisionSpheres[j].worldPos = colliderList[i].CollisionObject->m_worldTransform.pos
-														+ skeletonObj->m_localTransform.rot.Transpose()
-														* colliderList[i].collisionSpheres[j].offset;
+			collider.second.collisionSpheres[j].worldPos = collider.second.CollisionObject->m_worldTransform.pos + (collider.second.CollisionObject->m_worldTransform.rot * collider.second.collisionSpheres[j].offset) + VirtualOffset;
+			collider.second.collisionSpheres[j].radiuspwr2 = collider.second.collisionSpheres[j].radius * collider.second.collisionSpheres[j].radius;
 		}
-	}
+
+		for (int k = 0; k < collider.second.collisionCapsules.size(); k++)
+		{
+			collider.second.collisionCapsules[k].End1_worldPos = collider.second.CollisionObject->m_worldTransform.pos + (collider.second.CollisionObject->m_worldTransform.rot * collider.second.collisionCapsules[k].End1_offset) + VirtualOffset;
+			collider.second.collisionCapsules[k].End1_radiuspwr2 = collider.second.collisionCapsules[k].End1_radius * collider.second.collisionCapsules[k].End1_radius;
+			collider.second.collisionCapsules[k].End2_worldPos = collider.second.CollisionObject->m_worldTransform.pos + (collider.second.CollisionObject->m_worldTransform.rot * collider.second.collisionCapsules[k].End2_offset) + VirtualOffset;
+			collider.second.collisionCapsules[k].End2_radiuspwr2 = collider.second.collisionCapsules[k].End2_radius * collider.second.collisionCapsules[k].End2_radius;
+		}
+	});
 }
 
-//
-std::vector<long> GetHashIdsFromPos(NiPoint3 pos, float radius, long size)
+std::vector<int> GetHashIdsFromPos(NiPoint3 pos, float radiusplus)
 {
-	// adjacencyValue is configurable value that extends the radius length
-	float radiusplus = radius + adjacencyValue;
+	//float radiusplus = radius + 1.0f; //1 is enough now.
 
-	std::vector<long> hashIdList;
-	if (size > 0)
+	std::vector<int> hashIdList;
+	
+	int hashId = CreateHashId(pos.x, pos.y, pos.z, gridsize, actorDistance);
+	//LOG_INFO("hashId=%d", hashId);
+	if (hashId >= 0)
+		hashIdList.emplace_back(hashId);
+
+	bool xPlus = false;
+	bool xMinus = false;
+	bool yPlus = false;
+	bool yMinus = false;
+	bool zPlus = false;
+	bool zMinus = false;
+
+	hashId = CreateHashId(pos.x + radiusplus, pos.y, pos.z, gridsize, actorDistance);
+	//LOG_INFO("hashId=%d", hashId);
+	if (hashId >= 0)
 	{
-		long hashId = unsigned(floor(pos.x / gridsize)*a + floor(pos.y / gridsize)*b + floor(pos.z / gridsize)*c) % size;
-		//logger.Info("hashId=%d\n", hashId);
-		// if hashId is good as is then store it
-		if (hashId < size && hashId >= 0)
+		if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
+		{
+			xPlus = true;
 			hashIdList.emplace_back(hashId);
+		}
+	}
 
-		bool xPlus = false;
-		bool xMinus = false;
-		bool yPlus = false;
-		bool yMinus = false;
-		bool zPlus = false;
-		bool zMinus = false;
+	hashId = CreateHashId(pos.x - radiusplus, pos.y, pos.z, gridsize, actorDistance);
+	//LOG_INFO("hashId=%d", hashId);
+	if (hashId >= 0)
+	{
+		if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
+		{
+			xMinus = true;
+			hashIdList.emplace_back(hashId);
+		}
+	}
 
-		hashId = unsigned(floor((pos.x + radiusplus) / gridsize)*a + floor(pos.y / gridsize)*b + floor(pos.z / gridsize)*c) % size;
+	hashId = CreateHashId(pos.x, pos.y + radiusplus, pos.z, gridsize, actorDistance);
+	//LOG_INFO("hashId=%d", hashId);
+	if (hashId >= 0)
+	{
+		if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
+		{
+			yPlus = true;
+			hashIdList.emplace_back(hashId);
+		}
+	}
+
+	hashId = CreateHashId(pos.x, pos.y - radiusplus, pos.z, gridsize, actorDistance);
+	//LOG_INFO("hashId=%d", hashId);
+	if (hashId >= 0)
+	{
+		if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
+		{
+			yMinus = true;
+			hashIdList.emplace_back(hashId);
+		}
+	}
+
+	hashId = CreateHashId(pos.x, pos.y, pos.z + radiusplus, gridsize, actorDistance);
+	//LOG_INFO("hashId=%d", hashId);
+	if (hashId >= 0)
+	{
+		if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
+		{
+			zPlus = true;
+			hashIdList.emplace_back(hashId);
+		}
+	}
+
+	hashId = CreateHashId(pos.x, pos.y, pos.z - radiusplus, gridsize, actorDistance);
+	//LOG_INFO("hashId=%d", hashId);
+	if (hashId >= 0)
+	{
+		if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
+		{
+			zMinus = true;
+			hashIdList.emplace_back(hashId);
+		}
+	}
+
+	if (xPlus && yPlus)
+	{
+		hashId = CreateHashId(pos.x + radiusplus, pos.y + radiusplus, pos.z, gridsize,  actorDistance);
 		//LOG_INFO("hashId=%d", hashId);
-		if (hashId < size && hashId >= 0)
+		if (hashId >= 0)
 		{
 			if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
 			{
-				xPlus = true;
 				hashIdList.emplace_back(hashId);
 			}
 		}
 
-		hashId = unsigned(floor((pos.x - radiusplus) / gridsize)*a + floor(pos.y / gridsize)*b + floor(pos.z / gridsize)*c) % size;
-		//LOG_INFO("hashId=%d", hashId);
-		if (hashId < size && hashId >= 0)
+		if (xPlus && yPlus && zPlus)
 		{
-			if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
-			{
-				xMinus = true;
-				hashIdList.emplace_back(hashId);
-			}
-		}
-
-		hashId = unsigned(floor((pos.x) / gridsize)*a + floor((pos.y + radiusplus) / gridsize)*b + floor(pos.z / gridsize)*c) % size;
-		//LOG_INFO("hashId=%d", hashId);
-		if (hashId < size && hashId >= 0)
-		{
-			if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
-			{
-				yPlus = true;
-				hashIdList.emplace_back(hashId);
-			}
-		}
-
-		hashId = unsigned(floor((pos.x) / gridsize)*a + floor((pos.y - radiusplus) / gridsize)*b + floor(pos.z / gridsize)*c) % size;
-		//LOG_INFO("hashId=%d", hashId);
-		if (hashId < size && hashId >= 0)
-		{
-			if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
-			{
-				yMinus = true;
-				hashIdList.emplace_back(hashId);
-			}
-		}
-
-		hashId = unsigned(floor((pos.x) / gridsize)*a + floor((pos.y) / gridsize)*b + floor((pos.z + radiusplus) / gridsize)*c) % size;
-		//LOG_INFO("hashId=%d", hashId);
-		if (hashId < size && hashId >= 0)
-		{
-			if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
-			{
-				zPlus = true;
-				hashIdList.emplace_back(hashId);
-			}
-		}
-
-		hashId = unsigned(floor((pos.x) / gridsize)*a + floor((pos.y) / gridsize)*b + floor((pos.z - radiusplus) / gridsize)*c) % size;
-		//LOG_INFO("hashId=%d", hashId);
-		if (hashId < size && hashId >= 0)
-		{
-			if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
-			{
-				zMinus = true;
-				hashIdList.emplace_back(hashId);
-			}
-		}
-
-		if (xPlus && yPlus)
-		{
-			hashId = unsigned(floor((pos.x + radiusplus) / gridsize)*a + floor((pos.y + radiusplus) / gridsize)*b + floor(pos.z / gridsize)*c) % size;
+			hashId = CreateHashId(pos.x + radiusplus, pos.y + radiusplus, pos.z + radiusplus, gridsize, actorDistance);
 			//LOG_INFO("hashId=%d", hashId);
-			if (hashId < size && hashId >= 0)
-			{
-				if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
-				{
-					hashIdList.emplace_back(hashId);
-				}
-			}
-
-			if (xPlus && yPlus && zPlus)
-			{
-				hashId = unsigned(floor((pos.x + radiusplus) / gridsize)*a + floor((pos.y + radiusplus) / gridsize)*b + floor((pos.z + radiusplus) / gridsize)*c) % size;
-				//LOG_INFO("hashId=%d", hashId);
-				if (hashId < size && hashId >= 0)
-				{
-					if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
-					{
-						hashIdList.emplace_back(hashId);
-					}
-				}
-			}
-			else if (xPlus && yPlus && zMinus)
-			{
-				hashId = unsigned(floor((pos.x + radiusplus) / gridsize)*a + floor((pos.y + radiusplus) / gridsize)*b + floor((pos.z - radiusplus) / gridsize)*c) % size;
-				//LOG_INFO("hashId=%d", hashId);
-				if (hashId < size && hashId >= 0)
-				{
-					if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
-					{
-						hashIdList.emplace_back(hashId);
-					}
-				}
-			}
-		}
-		else if (xMinus && yPlus)
-		{
-			hashId = unsigned(floor((pos.x - radiusplus) / gridsize)*a + floor((pos.y + radiusplus) / gridsize)*b + floor(pos.z / gridsize)*c) % size;
-			//LOG_INFO("hashId=%d", hashId);
-			if (hashId < size && hashId >= 0)
-			{
-				if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
-				{
-					hashIdList.emplace_back(hashId);
-				}
-			}
-
-			if (xMinus && yPlus && zMinus)
-			{
-				hashId = unsigned(floor((pos.x - radiusplus) / gridsize)*a + floor((pos.y + radiusplus) / gridsize)*b + floor((pos.z - radiusplus) / gridsize)*c) % size;
-				//LOG_INFO("hashId=%d", hashId);
-				if (hashId < size && hashId >= 0)
-				{
-					if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
-					{
-						hashIdList.emplace_back(hashId);
-					}
-				}
-			}
-			else if (xMinus && yPlus && zPlus)
-			{
-				hashId = unsigned(floor((pos.x - radiusplus) / gridsize)*a + floor((pos.y + radiusplus) / gridsize)*b + floor((pos.z + radiusplus) / gridsize)*c) % size;
-				//LOG_INFO("hashId=%d", hashId);
-				if (hashId < size && hashId >= 0)
-				{
-					if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
-					{
-						hashIdList.emplace_back(hashId);
-					}
-				}
-			}
-		}
-		else if (xPlus && yMinus)
-		{
-			hashId = unsigned(floor((pos.x + radiusplus) / gridsize)*a + floor((pos.y - radiusplus) / gridsize)*b + floor(pos.z / gridsize)*c) % size;
-			//LOG_INFO("hashId=%d", hashId);
-			if (hashId < size && hashId >= 0)
-			{
-				if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
-				{
-					hashIdList.emplace_back(hashId);
-				}
-			}
-
-			if (xPlus && yMinus && zMinus)
-			{
-				hashId = unsigned(floor((pos.x + radiusplus) / gridsize)*a + floor((pos.y - radiusplus) / gridsize)*b + floor((pos.z - radiusplus) / gridsize)*c) % size;
-				//LOG_INFO("hashId=%d", hashId);
-				if (hashId < size && hashId >= 0)
-				{
-					if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
-					{
-						hashIdList.emplace_back(hashId);
-					}
-				}
-			}
-			else if (xPlus && yMinus && zPlus)
-			{
-				hashId = unsigned(floor((pos.x + radiusplus) / gridsize)*a + floor((pos.y - radiusplus) / gridsize)*b + floor((pos.z + radiusplus) / gridsize)*c) % size;
-				//LOG_INFO("hashId=%d", hashId);
-				if (hashId < size && hashId >= 0)
-				{
-					if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
-					{
-						hashIdList.emplace_back(hashId);
-					}
-				}
-			}
-		}
-		else if (xMinus && yMinus)
-		{
-			hashId = unsigned(floor((pos.x - radiusplus) / gridsize)*a + floor((pos.y - radiusplus) / gridsize)*b + floor(pos.z / gridsize)*c) % size;
-			//LOG_INFO("hashId=%d", hashId);
-			if (hashId < size && hashId >= 0)
-			{
-				if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
-				{
-					hashIdList.emplace_back(hashId);
-				}
-			}
-
-			if (xMinus && yMinus && zMinus)
-			{
-				hashId = unsigned(floor((pos.x - radiusplus) / gridsize)*a + floor((pos.y - radiusplus) / gridsize)*b + floor((pos.z - radiusplus) / gridsize)*c) % size;
-				//LOG_INFO("hashId=%d", hashId);
-				if (hashId < size && hashId >= 0)
-				{
-					if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
-					{
-						hashIdList.emplace_back(hashId);
-					}
-				}
-			}
-			else if (xMinus && yMinus && zPlus)
-			{
-				hashId = unsigned(floor((pos.x - radiusplus) / gridsize)*a + floor((pos.y - radiusplus) / gridsize)*b + floor((pos.z + radiusplus) / gridsize)*c) % size;
-				//LOG_INFO("hashId=%d", hashId);
-				if (hashId < size && hashId >= 0)
-				{
-					if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
-					{
-						hashIdList.emplace_back(hashId);
-					}
-				}
-			}
-		}
-
-		if (xPlus && zPlus)
-		{
-			hashId = unsigned(floor((pos.x + radiusplus) / gridsize)*a + floor((pos.y) / gridsize)*b + floor((pos.z + radiusplus) / gridsize)*c) % size;
-			//LOG_INFO("hashId=%d", hashId);
-			if (hashId < size && hashId >= 0)
+			if (hashId >= 0)
 			{
 				if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
 				{
@@ -378,84 +216,11 @@ std::vector<long> GetHashIdsFromPos(NiPoint3 pos, float radius, long size)
 				}
 			}
 		}
-		else if (xMinus && zPlus)
+		else if (xPlus && yPlus && zMinus)
 		{
-			hashId = unsigned(floor((pos.x - radiusplus) / gridsize)*a + floor((pos.y) / gridsize)*b + floor((pos.z + radiusplus) / gridsize)*c) % size;
+			hashId = CreateHashId(pos.x + radiusplus, pos.y + radiusplus, pos.z - radiusplus, gridsize, actorDistance);
 			//LOG_INFO("hashId=%d", hashId);
-			if (hashId < size && hashId >= 0)
-			{
-				if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
-				{
-					hashIdList.emplace_back(hashId);
-				}
-			}
-		}
-		else if (xPlus && zMinus)
-		{
-			hashId = unsigned(floor((pos.x + radiusplus) / gridsize)*a + floor((pos.y) / gridsize)*b + floor((pos.z - radiusplus) / gridsize)*c) % size;
-			//LOG_INFO("hashId=%d", hashId);
-			if (hashId < size && hashId >= 0)
-			{
-				if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
-				{
-					hashIdList.emplace_back(hashId);
-				}
-			}
-		}
-		else if (xMinus && zMinus)
-		{
-			hashId = unsigned(floor((pos.x - radiusplus) / gridsize)*a + floor((pos.y) / gridsize)*b + floor((pos.z - radiusplus) / gridsize)*c) % size;
-			//LOG_INFO("hashId=%d", hashId);
-			if (hashId < size && hashId >= 0)
-			{
-				if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
-				{
-					hashIdList.emplace_back(hashId);
-				}
-			}
-		}
-
-		if (yPlus && zPlus)
-		{
-			hashId = unsigned(floor((pos.x) / gridsize)*a + floor((pos.y + radiusplus) / gridsize)*b + floor((pos.z + radiusplus) / gridsize)*c) % size;
-			//LOG_INFO("hashId=%d", hashId);
-			if (hashId < size && hashId >= 0)
-			{
-				if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
-				{
-					hashIdList.emplace_back(hashId);
-				}
-			}
-		}
-		else if (yMinus && zPlus)
-		{
-			hashId = unsigned(floor((pos.x) / gridsize)*a + floor((pos.y - radiusplus) / gridsize)*b + floor((pos.z + radiusplus) / gridsize)*c) % size;
-			//LOG_INFO("hashId=%d", hashId);
-			if (hashId < size && hashId >= 0)
-			{
-				if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
-				{
-					hashIdList.emplace_back(hashId);
-				}
-			}
-		}
-		else if (yPlus && zMinus)
-		{
-			hashId = unsigned(floor((pos.x) / gridsize)*a + floor((pos.y + radiusplus) / gridsize)*b + floor((pos.z - radiusplus) / gridsize)*c) % size;
-			//LOG_INFO("hashId=%d", hashId);
-			if (hashId < size && hashId >= 0)
-			{
-				if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
-				{
-					hashIdList.emplace_back(hashId);
-				}
-			}
-		}
-		else if (yMinus && zMinus)
-		{
-			hashId = unsigned(floor((pos.x) / gridsize)*a + floor((pos.y - radiusplus) / gridsize)*b + floor((pos.z - radiusplus) / gridsize)*c) % size;
-			//LOG_INFO("hashId=%d", hashId);
-			if (hashId < size && hashId >= 0)
+			if (hashId >= 0)
 			{
 				if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
 				{
@@ -464,13 +229,223 @@ std::vector<long> GetHashIdsFromPos(NiPoint3 pos, float radius, long size)
 			}
 		}
 	}
+	else if (xMinus && yPlus)
+	{
+		hashId = CreateHashId(pos.x - radiusplus, pos.y + radiusplus, pos.z, gridsize, actorDistance);
+		//LOG_INFO("hashId=%d", hashId);
+		if (hashId >= 0)
+		{
+			if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
+			{
+				hashIdList.emplace_back(hashId);
+			}
+		}
+
+		if (xMinus && yPlus && zMinus)
+		{
+			hashId = CreateHashId(pos.x - radiusplus, pos.y + radiusplus, pos.z - radiusplus, gridsize, actorDistance);
+			//LOG_INFO("hashId=%d", hashId);
+			if (hashId >= 0)
+			{
+				if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
+				{
+					hashIdList.emplace_back(hashId);
+				}
+			}
+		}
+		else if (xMinus && yPlus && zPlus)
+		{
+			hashId = CreateHashId(pos.x - radiusplus, pos.y + radiusplus, pos.z + radiusplus, gridsize, actorDistance);
+			//LOG_INFO("hashId=%d", hashId);
+			if (hashId >= 0)
+			{
+				if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
+				{
+					hashIdList.emplace_back(hashId);
+				}
+			}
+		}
+	}
+	else if (xPlus && yMinus)
+	{
+		hashId = CreateHashId(pos.x + radiusplus, pos.y - radiusplus, pos.z, gridsize,  actorDistance);
+		//LOG_INFO("hashId=%d", hashId);
+		if (hashId >= 0)
+		{
+			if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
+			{
+				hashIdList.emplace_back(hashId);
+			}
+		}
+
+		if (xPlus && yMinus && zMinus)
+		{
+			hashId = CreateHashId(pos.x + radiusplus, pos.y - radiusplus, pos.z - radiusplus, gridsize, actorDistance);
+			//LOG_INFO("hashId=%d", hashId);
+			if (hashId >= 0)
+			{
+				if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
+				{
+					hashIdList.emplace_back(hashId);
+				}
+			}
+		}
+		else if (xPlus && yMinus && zPlus)
+		{
+			hashId = CreateHashId(pos.x + radiusplus, pos.y - radiusplus, pos.z + radiusplus, gridsize, actorDistance);
+			//LOG_INFO("hashId=%d", hashId);
+			if (hashId >= 0)
+			{
+				if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
+				{
+					hashIdList.emplace_back(hashId);
+				}
+			}
+		}
+	}
+	else if (xMinus && yMinus)
+	{
+		hashId = CreateHashId(pos.x - radiusplus, pos.y - radiusplus, pos.z, gridsize, actorDistance);
+		//LOG_INFO("hashId=%d", hashId);
+		if (hashId >= 0)
+		{
+			if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
+			{
+				hashIdList.emplace_back(hashId);
+			}
+		}
+
+		if (xMinus && yMinus && zMinus)
+		{
+			hashId = CreateHashId(pos.x - radiusplus, pos.y - radiusplus, pos.z - radiusplus, gridsize, actorDistance);
+			//LOG_INFO("hashId=%d", hashId);
+			if (hashId >= 0)
+			{
+				if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
+				{
+					hashIdList.emplace_back(hashId);
+				}
+			}
+		}
+		else if (xMinus && yMinus && zPlus)
+		{
+			hashId = CreateHashId(pos.x - radiusplus, pos.y - radiusplus, pos.z + radiusplus, gridsize, actorDistance);
+			//LOG_INFO("hashId=%d", hashId);
+			if (hashId >= 0)
+			{
+				if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
+				{
+					hashIdList.emplace_back(hashId);
+				}
+			}
+		}
+	}
+
+	if (xPlus && zPlus)
+	{
+		hashId = CreateHashId(pos.x + radiusplus, pos.y, pos.z + radiusplus, gridsize, actorDistance);
+		//LOG_INFO("hashId=%d", hashId);
+		if (hashId >= 0)
+		{
+			if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
+			{
+				hashIdList.emplace_back(hashId);
+			}
+		}
+	}
+	else if (xMinus && zPlus)
+	{
+		hashId = CreateHashId(pos.x - radiusplus, pos.y, pos.z + radiusplus, gridsize, actorDistance);
+		//LOG_INFO("hashId=%d", hashId);
+		if (hashId >= 0)
+		{
+			if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
+			{
+				hashIdList.emplace_back(hashId);
+			}
+		}
+	}
+	else if (xPlus && zMinus)
+	{
+		hashId = CreateHashId(pos.x + radiusplus, pos.y, pos.z - radiusplus, gridsize, actorDistance);
+		//LOG_INFO("hashId=%d", hashId);
+		if (hashId >= 0)
+		{
+			if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
+			{
+				hashIdList.emplace_back(hashId);
+			}
+		}
+	}
+	else if (xMinus && zMinus)
+	{
+		hashId = CreateHashId(pos.x - radiusplus, pos.y, pos.z - radiusplus, gridsize, actorDistance);
+		//LOG_INFO("hashId=%d", hashId);
+		if (hashId >= 0)
+		{
+			if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
+			{
+				hashIdList.emplace_back(hashId);
+			}
+		}
+	}
+
+	if (yPlus && zPlus)
+	{
+		hashId = CreateHashId(pos.x, pos.y + radiusplus, pos.z + radiusplus, gridsize, actorDistance);
+		//LOG_INFO("hashId=%d", hashId);
+		if (hashId >= 0)
+		{
+			if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
+			{
+				hashIdList.emplace_back(hashId);
+			}
+		}
+	}
+	else if (yMinus && zPlus)
+	{
+		hashId = CreateHashId(pos.x, pos.y - radiusplus, pos.z + radiusplus, gridsize, actorDistance);
+		//LOG_INFO("hashId=%d", hashId);
+		if (hashId >= 0)
+		{
+			if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
+			{
+				hashIdList.emplace_back(hashId);
+			}
+		}
+	}
+	else if (yPlus && zMinus)
+	{
+		hashId = CreateHashId(pos.x, pos.y + radiusplus, pos.z - radiusplus, gridsize, actorDistance);
+		//LOG_INFO("hashId=%d", hashId);
+		if (hashId >= 0)
+		{
+			if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
+			{
+				hashIdList.emplace_back(hashId);
+			}
+		}
+	}
+	else if (yMinus && zMinus)
+	{
+		hashId = CreateHashId(pos.x, pos.y - radiusplus, pos.z - radiusplus, gridsize, actorDistance);
+		//LOG_INFO("hashId=%d", hashId);
+		if (hashId >= 0)
+		{
+			if (!(std::find(hashIdList.begin(), hashIdList.end(), hashId) != hashIdList.end()))
+			{
+				hashIdList.emplace_back(hashId);
+			}
+		}
+	}
+
 	return hashIdList;
 }
 
-long GetHashIdFromPos(NiPoint3 pos, long size)
+int GetHashIdFromPos(NiPoint3 pos)
 {	
-	long hashId = unsigned(floor(pos.x / gridsize)*a + floor(pos.y / gridsize)*b + floor(pos.z / gridsize)*c) % size;
-	if (hashId < size && hashId >= 0)
+	int hashId = CreateHashId(pos.x, pos.y, pos.z, gridsize, actorDistance);
+	if (hashId >= 0)
 		return hashId;
 	else
 		return -1;
