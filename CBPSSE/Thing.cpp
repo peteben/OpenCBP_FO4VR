@@ -811,9 +811,9 @@ void Thing::UpdateThing(Actor* actor)
         collisionVector = emptyPoint;
         NiPoint3 lastcollisionVector = emptyPoint;
         CollisionConfig.maybePos = maybePos;
-        CollisionConfig.origRot = thingObj->m_parent->m_worldTransform.rot.Transpose();
+        CollisionConfig.origTransToWorld = thingObj->m_parent->m_worldTransform.rot.Transpose();
         CollisionConfig.objRot = objRotation;
-        CollisionConfig.invRot = thingObj->m_parent->m_worldTransform.rot;
+        CollisionConfig.origTransToLocal = thingObj->m_parent->m_worldTransform.rot;
 
         // Find collisions
         for (int j = 0; j < thingIdList.size(); j++)
