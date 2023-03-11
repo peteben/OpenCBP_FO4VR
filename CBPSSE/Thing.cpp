@@ -430,10 +430,6 @@ void Thing::UpdateThing(Actor* actor)
     if (deltaT > 64) deltaT = 64;
     if (deltaT < 8) deltaT = 8;
 
-	NiMatrix43 objRotation;
-
-    objRotation = thingObj->m_worldTransform.rot;
-
 	bool IsThereCollision = false;
     bool maybeNot = false;
 	NiPoint3 collisionDiff = NiPoint3(0, 0, 0);
@@ -445,6 +441,8 @@ void Thing::UpdateThing(Actor* actor)
     float varCogOffsetZ = cogOffsetZ;
 	float varGravityCorrection = gravityCorrection;
 	float varGravityBias = gravityBias;
+
+    auto forceMultiplier = 1.0f;
 
     int collisionCheckCount = 0;
 #if TRANSFORM_DEBUG
@@ -500,11 +498,6 @@ void Thing::UpdateThing(Actor* actor)
     // First transform the cog offset (which is in skeleton space) to world space
     // target is in world space
     NiPoint3 target = (skelSpaceInvTransform * NiPoint3(cogOffsetX, cogOffsetY, cogOffsetZ)) + origWorldPos;
-
-    // move the bones based on the supplied weightings
-    // Convert the world translations into local coordinates
-    NiMatrix43 rotateLinear;
-    rotateLinear.SetEulerAngles(rotateLinearX * DEG_TO_RAD, rotateLinearY * DEG_TO_RAD, rotateLinearZ * DEG_TO_RAD);
 
 #if DEBUG
     logger.Error("World Position: ");
@@ -619,47 +612,45 @@ void Thing::UpdateThing(Actor* actor)
     //ShowPos(oldWorldPos);
 #endif
 
-    auto localDiff = diff;
-
-    // Transform localDiff (which is in world space) to skeleton space
-    localDiff = skeletonObj->m_localTransform.rot * localDiff;
+    // Transform skelDiff (which is in world space) to skeleton space
+    auto skelDiff = skeletonObj->m_localTransform.rot * diff;
  
     auto scaleMultiplier = 1.0;
-    localDiff.x *= scaleMultiplier;
-    localDiff.y *= scaleMultiplier;
-    localDiff.z *= scaleMultiplier;
+    skelDiff.x *= scaleMultiplier;
+    skelDiff.y *= scaleMultiplier;
+    skelDiff.z *= scaleMultiplier;
 
-    auto beforeLocalDiff = localDiff;
-
-    // Clamp against settings (which are in skeleton space)
-    localDiff.x = clamp(localDiff.x, -maxOffsetX, maxOffsetX);
-    localDiff.y = clamp(localDiff.y, -maxOffsetY, maxOffsetY);
-    localDiff.z = clamp(localDiff.z, -maxOffsetZ, maxOffsetZ);
-
-    beforeLocalDiff = beforeLocalDiff - localDiff;
-
-    localDiff.x += (beforeLocalDiff.y * linearSpreadforceXtoY) + (beforeLocalDiff.z * linearSpreadforceXtoZ);
-    localDiff.y += (beforeLocalDiff.x * linearSpreadforceYtoX) + (beforeLocalDiff.z * linearSpreadforceYtoZ);
-    localDiff.z += (beforeLocalDiff.x * linearSpreadforceZtoX) + (beforeLocalDiff.y * linearSpreadforceZtoY);
+    auto beforeLocalDiff = skelDiff;
 
     // Clamp against settings (which are in skeleton space)
-    localDiff.x = clamp(localDiff.x, -maxOffsetX, maxOffsetX);
-    localDiff.y = clamp(localDiff.y, -maxOffsetY, maxOffsetY);
-    localDiff.z = clamp(localDiff.z, -maxOffsetZ, maxOffsetZ);
+    skelDiff.x = clamp(skelDiff.x, -maxOffsetX, maxOffsetX);
+    skelDiff.y = clamp(skelDiff.y, -maxOffsetY, maxOffsetY);
+    skelDiff.z = clamp(skelDiff.z, -maxOffsetZ, maxOffsetZ);
 
-    localDiff.x *= linearX;
-    localDiff.y *= linearY;
-    localDiff.z *= linearZ;
+    beforeLocalDiff = beforeLocalDiff - skelDiff;
 
-    // Store a copy of localDiff for later for transforming rotation motions
-    auto rotDiff = localDiff;
+    skelDiff.x += (beforeLocalDiff.y * linearSpreadforceXtoY) + (beforeLocalDiff.z * linearSpreadforceXtoZ);
+    skelDiff.y += (beforeLocalDiff.x * linearSpreadforceYtoX) + (beforeLocalDiff.z * linearSpreadforceYtoZ);
+    skelDiff.z += (beforeLocalDiff.x * linearSpreadforceZtoX) + (beforeLocalDiff.y * linearSpreadforceZtoY);
+
+    // Clamp against settings (which are in skeleton space)
+    skelDiff.x = clamp(skelDiff.x, -maxOffsetX, maxOffsetX);
+    skelDiff.y = clamp(skelDiff.y, -maxOffsetY, maxOffsetY);
+    skelDiff.z = clamp(skelDiff.z, -maxOffsetZ, maxOffsetZ);
+
+    skelDiff.x *= linearX;
+    skelDiff.y *= linearY;
+    skelDiff.z *= linearZ;
+
+    // Store a copy of skelDiff for later for transforming rotation motions
+    auto rotDiff = skelDiff;
 
     auto varGravitySupine = CalculateGravitySupine(actor);
 
-    // Transform localDiff to world coordinates
-    localDiff = skeletonObj->m_localTransform.rot.Transpose() * localDiff;
+    // Transform skelDiff to world coordinates
+    skelDiff = skeletonObj->m_localTransform.rot.Transpose() * skelDiff;
 
-    auto newWorldPos = localDiff;
+    auto newWorldPos = skelDiff;
 
     newWorldPos.x += varGravitySupine.x * linearX;
     newWorldPos.y += varGravitySupine.y * linearY;
@@ -670,13 +661,13 @@ void Thing::UpdateThing(Actor* actor)
     // Create the rotated world space transformation matrix
     NiMatrix43 rotatedInvWorldTrans = rotateLinear * newRotation.Transpose() * thingObj->m_parent->m_worldTransform.rot;
 
-    // Transform localDiff to a settings-rotated local space
+    // Transform skelDiff to a settings-rotated local space
     //newWorldPos = rotatedInvWorldTrans * newWorldPos;
 
     auto newLocalPos = origLocalPos[boneName.c_str()][actor->formID] + (rotatedInvWorldTrans * newWorldPos);
 
     // Apply gravityCorrection, which will always point downward
-    newLocalPos += rotateLinear * thingObj->m_parent->m_worldTransform.rot * skeletonObj->m_localTransform.rot.Transpose() * NiPoint3(0, 0, gravityCorrection * linearZ);
+    // newLocalPos += rotateLinear * thingObj->m_parent->m_worldTransform.rot * skeletonObj->m_localTransform.rot.Transpose() * NiPoint3(0, 0, gravityCorrection * linearZ);
 
     //if (ContainsNoCase(std::string(boneName.c_str()), "Breast_CBP_R_02") ||
     //    ContainsNoCase(std::string(boneName.c_str()), "Breast_CBP_L_02")
@@ -739,7 +730,7 @@ void Thing::UpdateThing(Actor* actor)
     rotDiff = rotateRotation * rotDiff;
     standardRot.SetEulerAngles(rotDiff.x, rotDiff.y, rotDiff.z);
     // Calculate the new local rot as an offset from the original local rot
-    thingObj->m_localTransform.rot = standardRot * origLocalRot[boneName.c_str()][actor->formID];
+    //thingObj->m_localTransform.rot = standardRot * origLocalRot[boneName.c_str()][actor->formID];
 
 #if DEBUG
     logger.Error("end update()\n");
@@ -760,28 +751,33 @@ void Thing::UpdateThing(Actor* actor)
         auto actorBaseScale = 1.0f;
         auto nodeScale = 1.0f;
 
-        //The rotation of the previous frame due to collisions should not be used
-        NiMatrix43 objRotation = thingObj->m_parent->m_worldTransform.rot * thingDefaultRot * newRot;
+        //The rotation of the previous frame due to collisions should not be used.
+        // Calculate the new rot and transform it to world space
+        NiMatrix43 objRotation = thingObj->m_parent->m_worldTransform.rot.Transpose() * (standardRot * origLocalRot[boneName.c_str()][actor->formID]);
 
         //LOG("Before Maybe Collision Stuff Start");
-        auto maybeldiff = ldiff;
-        maybeldiff.x = maybeldiff.x * varLinearX;
-        maybeldiff.y = maybeldiff.y * varLinearY;
-        maybeldiff.z = maybeldiff.z * varLinearZ;
+        auto maybeldiff = newLocalPos;
+        //maybeldiff.x = maybeldiff.x * linearX;
+        //maybeldiff.y = maybeldiff.y * linearY;
+        //maybeldiff.z = maybeldiff.z * linearZ;
 
-        NiPoint3 playerPos = (*g_thePlayer)->loadedState->node->m_worldTransform * NiPoint3(0, cogOffset, 0);
-        NiPoint3 maybePos = target + (obj->m_parent->m_worldTransform.rot * (maybeldiff + (thingDefaultPos * nodeScale))); //add missing local pos
+        //(thingObj->m_parent->m_worldTransform.rot.Transpose() * origLocalPos[boneName.c_str()][actor->formID]) + thingObj->m_parent->m_worldTransform.pos
+        //NiAVObject * playerObj = (*g_player)->unkF0->rootNode;
+
+        // MaybePos = target + worldDiff + worldPos
+        // MaybePos is in world coordinate space
+        NiPoint3 maybePos = target + (thingObj->m_parent->m_worldTransform.rot.Transpose() * (maybeldiff + (origLocalPos[boneName.c_str()][actor->formID] * nodeScale))); //add missing local pos
 
         float colliderNodescale = nodeScale / actorBaseScale; //Calibrate the scale gap between collider and actual mesh caused by bone weight
 
         //After cbp movement collision detection
         for (int i = 0; i < thingCollisionSpheres.size(); i++)
         {
-            thingCollisionSpheres[i].offset = thingCollisionSpheres[i].offset * actorBaseScale * colliderNodescale;
+            //thingCollisionSpheres[i].offset = thingCollisionSpheres[i].offset * actorBaseScale * colliderNodescale;
             thingCollisionSpheres[i].worldPos = maybePos + (objRotation * thingCollisionSpheres[i].offset);
-            thingCollisionSpheres[i].radius = thingCollisionSpheres[i].radius * actorBaseScale * colliderNodescale;
+            //thingCollisionSpheres[i].radius = thingCollisionSpheres[i].radius * actorBaseScale * colliderNodescale;
             thingCollisionSpheres[i].radiuspwr2 = thingCollisionSpheres[i].radius * thingCollisionSpheres[i].radius;
-            hashIdList = GetHashIdsFromPos(thingCollisionSpheres[i].worldPos - playerPos, thingCollisionSpheres[i].radius);
+            hashIdList = GetHashIdsFromPos(thingCollisionSpheres[i].worldPos, thingCollisionSpheres[i].radius);
             for (int m = 0; m < hashIdList.size(); m++)
             {
                 if (!(std::find(thingIdList.begin(), thingIdList.end(), hashIdList[m]) != thingIdList.end()))
@@ -792,15 +788,15 @@ void Thing::UpdateThing(Actor* actor)
         }
         for (int i = 0; i < thingCollisionCapsules.size(); i++)
         {
-            thingCollisionCapsules[i].End1_offset = thingCollisionCapsules[i].End1_offset * actorBaseScale * colliderNodescale;
+            //thingCollisionCapsules[i].End1_offset = thingCollisionCapsules[i].End1_offset * actorBaseScale * colliderNodescale;
             thingCollisionCapsules[i].End1_worldPos = maybePos + (objRotation * thingCollisionCapsules[i].End1_offset);
-            thingCollisionCapsules[i].End1_radius = thingCollisionCapsules[i].End1_radius * actorBaseScale * colliderNodescale;
+            //thingCollisionCapsules[i].End1_radius = thingCollisionCapsules[i].End1_radius * actorBaseScale * colliderNodescale;
             thingCollisionCapsules[i].End1_radiuspwr2 = thingCollisionCapsules[i].End1_radius * thingCollisionCapsules[i].End1_radius;
-            thingCollisionCapsules[i].End2_offset = thingCollisionCapsules[i].End2_offset * actorBaseScale * colliderNodescale;
+            //thingCollisionCapsules[i].End2_offset = thingCollisionCapsules[i].End2_offset * actorBaseScale * colliderNodescale;
             thingCollisionCapsules[i].End2_worldPos = maybePos + (objRotation * thingCollisionCapsules[i].End2_offset);
-            thingCollisionCapsules[i].End2_radius = thingCollisionCapsules[i].End2_radius * actorBaseScale * colliderNodescale;
+            //thingCollisionCapsules[i].End2_radius = thingCollisionCapsules[i].End2_radius * actorBaseScale * colliderNodescale;
             thingCollisionCapsules[i].End2_radiuspwr2 = thingCollisionCapsules[i].End2_radius * thingCollisionCapsules[i].End2_radius;
-            hashIdList = GetHashIdsFromPos((thingCollisionCapsules[i].End2_worldPos + thingCollisionCapsules[i].End2_worldPos) * 0.5f - playerPos
+            hashIdList = GetHashIdsFromPos((thingCollisionCapsules[i].End2_worldPos + thingCollisionCapsules[i].End2_worldPos) * 0.5f
                 , (thingCollisionCapsules[i].End1_radius + thingCollisionCapsules[i].End2_radius) * 0.5f);
             for (int m = 0; m < hashIdList.size(); m++)
             {
@@ -815,9 +811,11 @@ void Thing::UpdateThing(Actor* actor)
         collisionVector = emptyPoint;
         NiPoint3 lastcollisionVector = emptyPoint;
         CollisionConfig.maybePos = maybePos;
-        CollisionConfig.origRot = obj->m_parent->m_worldTransform.rot;
+        CollisionConfig.origRot = thingObj->m_parent->m_worldTransform.rot.Transpose();
         CollisionConfig.objRot = objRotation;
-        CollisionConfig.invRot = invRot;
+        CollisionConfig.invRot = thingObj->m_parent->m_worldTransform.rot;
+
+        // Find collisions
         for (int j = 0; j < thingIdList.size(); j++)
         {
             int id = thingIdList[j];
@@ -856,7 +854,9 @@ void Thing::UpdateThing(Actor* actor)
                     {
                         maybeNot = true;
 
-                        if (partitions[id].partitionCollisions[i].colliderActor == (*g_thePlayer) && std::find(PlayerCollisionEventNodes.begin(), PlayerCollisionEventNodes.end(), partitions[id].partitionCollisions[i].colliderNodeName) != PlayerCollisionEventNodes.end())
+                        std::string actorNodeString = GetActorNodeString(actor, boneName);
+
+                        if (std::find(PlayerCollisionEventNodes.begin(), PlayerCollisionEventNodes.end(), partitions[id].partitionCollisions[i].colliderNodeName) != PlayerCollisionEventNodes.end())
                         {
                             ActorNodePlayerCollisionEventMap[actorNodeString].collisionInThisCycle = true;
                         }
@@ -917,19 +917,20 @@ void Thing::UpdateThing(Actor* actor)
             }
         } */
 
+        // Collision found
         if (maybeNot)
         {
-            collisionOnLastFrame = maybeNot;
+            collisionOnLastFrame = true;
 
-            ldiffcol = invRot * (collisionVector * collisionPenetration);
-            ldiffGcol = invRot * (GroundCollisionVector * collisionPenetration);
+            ldiffcol = thingObj->m_parent->m_worldTransform.rot * (collisionVector * collisionPenetration);
+            ldiffGcol = thingObj->m_parent->m_worldTransform.rot * (GroundCollisionVector * collisionPenetration);
 
             //Add more collision force for weak bone weights but virtually for maintain collision by obj position
             //For example, if a obj has a bone weight value of about 0.1, that shape seems actually moves by 0.1 even if the obj moves by 1
             //However, simply applying the multipler then changes the actual obj position,so that's making the collisions out of sync
             //Therefore to make perfect collision
             //it seems to be pushed out as much as colliding to the naked eye, but the actual position of the colliding obj must be maintained original position
-            maybeIdiffcol = (ldiffcol + ldiffGcol) * collisionMultipler / obj->m_parent->m_worldTransform.scale;
+            maybeIdiffcol = (ldiffcol + ldiffGcol) * collisionMultipler / thingObj->m_parent->m_worldTransform.scale;
 
             //add collision vector buffer of one frame to some reduce jitter and add softness by collision
             //be particularly useful for both nodes colliding that defined in both affected and collider nodes
@@ -938,7 +939,7 @@ void Thing::UpdateThing(Actor* actor)
             collisionBuffer = maybeldiffcoltmp;
 
             //set to collision sync for the obj that has both affected obj and collider obj
-            collisionSync = obj->m_parent->m_worldTransform.rot * (ldiffcol + ldiffGcol - maybeIdiffcol);
+            collisionSync = thingObj->m_parent->m_worldTransform * (ldiffcol + ldiffGcol - maybeIdiffcol);
 
             auto rcoldiffXnew = (ldiffcol + ldiffGcol) * collisionMultiplerRot * varRotationalXnew;
             auto rcoldiffYnew = (ldiffcol + ldiffGcol) * collisionMultiplerRot * varRotationalYnew;

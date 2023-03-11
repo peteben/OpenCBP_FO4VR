@@ -108,6 +108,9 @@ void UpdateColliderPositions(concurrency::concurrent_unordered_map<std::string, 
 	});
 }
 
+
+// Returns list of collision hash ids given a position and the radius
+// Hash ids are for collisions at pos within the radius
 std::vector<int> GetHashIdsFromPos(NiPoint3 pos, float radiusplus)
 {
 	//float radiusplus = radius + 1.0f; //1 is enough now.

@@ -177,6 +177,7 @@
     <ClInclude Include="Collision.h" />
     <ClInclude Include="CollisionConfig.h" />
     <ClInclude Include="CollisionHub.h" />
+    <ClInclude Include="hash.h" />
     <ClInclude Include="INIReader.h" />
     <ClInclude Include="PapyrusOCBP.h" />
     <ClInclude Include="SimObj.h" />
@@ -185,6 +186,8 @@
     <ClInclude Include="Thing.h" />
     <ClInclude Include="Utility.hpp" />
     <ClInclude Include="unordered_dense.h" />
+    <ClInclude Include="xs_Config.h" />
+    <ClInclude Include="xs_Float.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\detourxs-master\detourxs.cpp" />
@@ -209,6 +212,7 @@
     <ClCompile Include="Collision.cpp" />
     <ClCompile Include="CollisionConfig.cpp" />
     <ClCompile Include="CollisionHub.cpp" />
+    <ClCompile Include="hash.cpp" />
     <ClCompile Include="PapyrusOCBP.cpp" />
     <ClCompile Include="SimObj.cpp" />
     <ClCompile Include="config.cpp" />

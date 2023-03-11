@@ -470,3 +470,8 @@ static inline bool isWantSlot(TESObjectARMO* thisArmor, UInt32 wantSlot)
 	UInt32 slot = (thisArmor) ? thisArmor->bipedObject.GetSlotMask() : 0;
 	return (slot == wantSlot);
 }
+
+inline std::string GetActorNodeString(Actor* actor, BSFixedString nodeName)
+{
+	return num2hex(actor->formID, 8) + ":" + nodeName.c_str();
+}

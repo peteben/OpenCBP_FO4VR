@@ -136,3 +136,17 @@ void DumpCollisionConfigsToLog();
 
 bool ConditionCheck(Actor* actor, ConditionItem& condition);
 bool CheckActorForConditions(Actor* actor, Conditions& conditions);
+
+extern concurrency::concurrent_vector<std::string> PlayerCollisionEventNodes;
+
+extern float MinimumCollisionDurationForEvent;
+
+struct PlayerCollisionEvent
+{
+	bool collisionInThisCycle = false;
+	float durationFilled = 0.0f;
+	float totalDurationFilled = 0.0f;
+};
+
+extern concurrency::concurrent_unordered_map<std::string, PlayerCollisionEvent> ActorNodePlayerCollisionEventMap;
+

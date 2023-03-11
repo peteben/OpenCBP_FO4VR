@@ -30,6 +30,12 @@ float collisionZ = 1.0;
 std::string GroundReferenceBone("Root");
 std::string HighheelReferenceBone("NPC");
 
+concurrency::concurrent_vector<std::string> PlayerCollisionEventNodes;
+
+float MinimumCollisionDurationForEvent = 0.3f;
+
+concurrency::concurrent_unordered_map<std::string, PlayerCollisionEvent> ActorNodePlayerCollisionEventMap;
+
 void LoadCollisionConfig()
 {
     AffectedNodeLines.clear();
