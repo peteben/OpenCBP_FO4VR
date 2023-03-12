@@ -40,13 +40,13 @@ Collision::Collision(NiAVObject* node, std::vector<Sphere> &colliderspheres, std
 
 void UpdateThingColliderPositions(NiPoint3 &Collisiondif, std::vector<Sphere>& thingCollisionSpheres, std::vector<Capsule>& thingCollisionCapsules, CollisionConfigs CollisionConfig)
 {
-	auto lcollisiondif = CollisionConfig.origTransToLocal * Collisiondif;
+	auto lcollisiondif = CollisionConfig.origTransWorldToLocal * Collisiondif;
 	
 	lcollisiondif.x = clamp(lcollisiondif.x, CollisionConfig.CollisionMinOffset.x, CollisionConfig.CollisionMaxOffset.x);
 	lcollisiondif.y = clamp(lcollisiondif.y, CollisionConfig.CollisionMinOffset.y, CollisionConfig.CollisionMaxOffset.y);
 	lcollisiondif.z = clamp(lcollisiondif.z, CollisionConfig.CollisionMinOffset.z, CollisionConfig.CollisionMaxOffset.z);
 	
-	Collisiondif = CollisionConfig.origTransToWorld * lcollisiondif;
+	Collisiondif = CollisionConfig.origTransLocalToWorld * lcollisiondif;
 	
 	for (int l = 0; l < thingCollisionSpheres.size(); l++)
 	{

@@ -21,8 +21,8 @@ struct CollisionConfigs {
 	NiPoint3 maybePos = emptyPoint;
 	NiMatrix43 objRot;
 
-	NiMatrix43 origTransToWorld;
-	NiMatrix43 origTransToLocal;
+	NiMatrix43 origTransLocalToWorld;
+	NiMatrix43 origTransWorldToLocal;
 	
 	NiPoint3 CollisionMaxOffset = NiPoint3(100.0f, 100.0f, 100.0f);
 	NiPoint3 CollisionMinOffset = NiPoint3(-100.0f, -100.0f, -100.0f);

@@ -93,7 +93,7 @@ struct SpecificNPCConfig
 
 	std::vector<ConfigLine> AffectedNodesList;
 
-	std::vector<ConfigLine> ColliderNodesList;
+	concurrency::concurrent_vector<ConfigLine> ColliderNodesList;
 
 };
 

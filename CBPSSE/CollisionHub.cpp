@@ -32,7 +32,7 @@ bool CreateActorColliders(Actor * actor, concurrency::concurrent_unordered_map<s
 	//	actorBaseScale = CALL_MEMBER_FN(actorRef, GetBaseScale)();
 	//}
 	
-	std::vector<ConfigLine>* ColliderNodesListPtr;
+	concurrency::concurrent_vector<ConfigLine>* ColliderNodesListPtr;
 	
 	SpecificNPCConfig snc;
 

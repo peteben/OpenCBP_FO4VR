@@ -100,6 +100,14 @@ public:
     float gravitySupineY = 0.0f;
     float gravitySupineZ = 0.0f;
 
+    float collisionFriction = 0.02f;
+    float collisionPenetration = 1.0f;
+    float collisionMultipler = 1.0f;
+    float collisionMultiplerRot = 1.0f;
+
+    bool collisionElastic = false;
+    bool collisionElasticConstraints = false;
+
     static pos_map origLocalPos;
     static rot_map origLocalRot;
     static rot_map origChestWorldRot;

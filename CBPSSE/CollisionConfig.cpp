@@ -386,3 +386,54 @@ void DumpCollisionConfigsToLog()
         printSpheresMessage("", node.CollisionSpheres);
     }
 }
+
+void LoadPlayerCollisionEventConfig()
+{
+    PlayerCollisionEventNodes.clear();
+    std::string	runtimeDirectory = GetRuntimeDirectory();
+
+    if (!runtimeDirectory.empty())
+    {
+        std::string configPath = runtimeDirectory + "Data\\F4SE\\Plugins\\CBPCPlayerCollisionEventConfig.txt";
+
+        std::ifstream file(configPath);
+        std::string line;
+        std::string currentSetting;
+        while (std::getline(file, line))
+        {
+            trim(line);
+            skipComments(line);
+            trim(line);
+            if (line.length() > 0)
+            {
+                if (line.substr(0, 1) == "[")
+                {
+                    //newsetting
+                    currentSetting = line;
+                }
+                else
+                {
+                    if (currentSetting == "[PlayerCollisionEventNodes]")
+                    {
+                        PlayerCollisionEventNodes.push_back(line);
+                    }
+                    else if (currentSetting == "[Settings]")
+                    {
+                        std::string variableName;
+                        float variableValue = GetConfigSettingsFloatValue(line, variableName);
+                        if (variableName == "MinimumCollisionDuration")
+                        {
+                            MinimumCollisionDurationForEvent = variableValue;
+                        }
+                    }
+                }
+            }
+        }
+
+        logger.Error("Player Collision Event Config file is loaded successfully.");
+        return;
+    }
+
+    logger.Error("Player Collision Event Config file is not loaded.");
+    return;
+}
