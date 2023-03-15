@@ -1,6 +1,7 @@
 #include "f4se/GameRTTI.h"
 #include "f4se_common/Utilities.h"
 
+#include "CollisionConfig.h"
 #include "CollisionHub.h"
 #include "hash.h"
 #include "log.h"
@@ -15,7 +16,7 @@ bool CreateActorColliders(Actor * actor, concurrency::concurrent_unordered_map<s
 {
 	bool GroundCollisionEnabled = false;
 	NiNode* mostInterestingRoot;
-	//logger.Info("ActorCount: %d\n", actorEntries.size());
+
 	if (actor && actor->unkF0 && actor->unkF0->rootNode)
 	{
     	mostInterestingRoot = actor->unkF0->rootNode;
@@ -38,14 +39,14 @@ bool CreateActorColliders(Actor * actor, concurrency::concurrent_unordered_map<s
 
 	if (actor)
 	{
-		if (GetSpecificNPCConfigForActor(actor))
-		{
-			ColliderNodesListPtr = &(snc.ColliderNodesList);
-		}
-		else
-		{
+		//if (GetSpecificNPCConfigForActor(actor))
+		//{
+		//	ColliderNodesListPtr = &(snc.ColliderNodesList);
+		//}
+		//else
+		//{
 			ColliderNodesListPtr = &ColliderNodesList;
-		}
+		//}
 	}
 	else
 	{

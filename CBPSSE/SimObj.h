@@ -21,7 +21,12 @@ public:
         Unassigned
     };
 
+    float actorDistSqr;
+
     concurrency::concurrent_unordered_map<std::string, Thing> things;
+    concurrency::concurrent_unordered_map<std::string, Collision> actorColliders;
+    concurrency::concurrent_unordered_map<std::string, NiPoint3> NodeCollisionSync;
+
     SimObj(Actor* actor);
     SimObj() {}
     ~SimObj();
@@ -32,7 +37,7 @@ public:
     std::string GetRaceEID();
     void Reset();
     void SetActorKey(UInt64 key);
-    void Update(Actor* actor);
+    void Update(Actor* actor, bool collisionsEnabled);
     bool UpdateConfigs(config_t& config);
     bool IsBound() { return bound; }
 private:
@@ -41,6 +46,10 @@ private:
     Gender gender;
     std::string raceEid;
     UInt64 currentActorKey;
+
+    // Ground Collision Data
+    bool GroundCollisionEnabled = false;
+    float groundPos = -10000.0f;
 };
 
 extern std::vector<std::string> boneNames;

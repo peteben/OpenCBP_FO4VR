@@ -9,6 +9,7 @@
 constexpr auto DEG_TO_RAD = 3.14159265 / 180;
 const char* skeletonNif_boneName = "skeleton.nif";
 const float DIFF_LIMIT = 100.0;
+const NiMatrix43 zeroMatrix = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
 // TODO Make these logger macros
 //#define DEBUG 1
@@ -133,7 +134,7 @@ void Thing::StoreOriginalTransforms(Actor* actor)
             }
             else
             {
-                auto actorRotMap = origChestWorldRot.at(boneName.c_str());
+                auto &actorRotMap = origChestWorldRot.at(boneName.c_str());
                 auto actor_iter = actorRotMap.find(actor->formID);
                 if (actor_iter == actorRotMap.end())
                 {
@@ -155,7 +156,7 @@ void Thing::StoreOriginalTransforms(Actor* actor)
     }
     else
     {
-        auto actorPosMap = origLocalPos.at(boneName.c_str());
+        auto &actorPosMap = origLocalPos.at(boneName.c_str());
         auto actor_iter = actorPosMap.find(actor->formID);
         if (actor_iter == actorPosMap.end())
         {
@@ -180,7 +181,7 @@ void Thing::StoreOriginalTransforms(Actor* actor)
     }
     else
     {
-        auto actorRotMap = origLocalRot.at(boneName.c_str());
+        auto &actorRotMap = origLocalRot.at(boneName.c_str());
         auto actor_iter = actorRotMap.find(actor->formID);
         if (actor_iter == actorRotMap.end())
         {
@@ -494,9 +495,6 @@ void Thing::UpdateThing(Actor* actor)
         return;
     }
 
-    NiPoint3 newWorldPos = oldWorldPos;
-    NiPoint3 posDelta = NiPoint3(0, 0, 0);
-
     const NiMatrix43 TransformWorldToSkel = skeletonObj->m_localTransform.rot;
     const NiMatrix43 TransformSkelToWorld = skeletonObj->m_localTransform.rot.Transpose();
     const NiMatrix43 TransformWorldToLocal = thingObj->m_parent->m_worldTransform.rot;
@@ -515,26 +513,6 @@ void Thing::UpdateThing(Actor* actor)
     // Cog offset is offset to move Center of Mass make rotational motion more significant
     NiPoint3 worldTarget = (TransformSkelToWorld * NiPoint3(cogOffsetX, cogOffsetY, cogOffsetZ)) + origWorldPos;
 
-#if DEBUG
-    logger.Error("World Position: ");
-    ShowPos(thingObj->m_worldTransform.pos);
-    logger.Error("oldWorldPos: ");
-    ShowPos(oldWorldPos);
-    logger.Error("worldTarget: ");
-    ShowPos(worldTarget);
-    //logger.Error("Parent World Position difference: ");
-    //ShowPos(thingObj->m_worldTransform.pos - thingObj->m_parent->m_worldTransform.pos);
-    ShowPos(TransformSkelToWorld * NiPoint3(cogOffsetX, cogOffsetY, cogOffsetZ));
-    //logger.Error("Target Rotation:\n");
-    //ShowRot(TransformSkelToWorld);
-    logger.Error("cogOffset x Transformation:");
-    ShowPos(TransformSkelToWorld * NiPoint3(cogOffsetX, 0, 0));
-    logger.Error("cogOffset y Transformation:");
-    ShowPos(TransformSkelToWorld * NiPoint3(0, cogOffsetY, 0));
-    logger.Error("cogOffset z Transformation:");
-    ShowPos(TransformSkelToWorld * NiPoint3(0, 0, cogOffsetZ));
-#endif
-
     // worldDiff is Difference in position between old and new world position
     NiPoint3 worldDiff = (worldTarget - oldWorldPos) * forceMultiplier;
 
@@ -552,13 +530,17 @@ void Thing::UpdateThing(Actor* actor)
         return;
     }
 
+    NiPoint3 newWorldPos = oldWorldPos;
+    NiPoint3 posDelta = NiPoint3(0, 0, 0);
+
+
     // Rotation for transforming gravityBias back to world coordinates
     auto newRotation = TransformWorldToLocal * origWorldRot.Transpose();
 
     // move the bones based on the supplied weightings
     // Convert the world translations into local coordinates
 
-    NiMatrix43 rotateLinear;
+    NiMatrix43 rotateLinear = zeroMatrix;
     rotateLinear.SetEulerAngles(rotateLinearX * DEG_TO_RAD, rotateLinearY * DEG_TO_RAD, rotateLinearZ * DEG_TO_RAD);
 
     auto timeMultiplier = timeTick / (float)deltaT;
@@ -726,12 +708,12 @@ void Thing::UpdateThing(Actor* actor)
 
 #endif
     // Rotate rotation according to settings.
-    NiMatrix43 rotateRotation;
+    NiMatrix43 rotateRotation = zeroMatrix;
     rotateRotation.SetEulerAngles(rotateRotationX * DEG_TO_RAD,
         rotateRotationY * DEG_TO_RAD,
         rotateRotationZ * DEG_TO_RAD);
 
-    NiMatrix43 standardRot;
+    NiMatrix43 standardRot = zeroMatrix;
 
     rotDiff = rotateRotation * rotDiff;
     standardRot.SetEulerAngles(rotDiff.x, rotDiff.y, rotDiff.z);

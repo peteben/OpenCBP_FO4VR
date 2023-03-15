@@ -2,7 +2,7 @@
 
 #include "Collision.h"
 #include "ActorEntry.h"
-#include "f4se\PapyrusActor.h"
+//#include "f4se\PapyrusActor.h"
 
 
 

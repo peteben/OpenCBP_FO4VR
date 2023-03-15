@@ -66,7 +66,7 @@ bool SimObj::AddBonesToThings(Actor* actor, std::vector<std::string>& boneNames)
 
 bool SimObj::Bind(Actor* actor, std::vector<std::string>& boneNames, config_t& config)
 {
-    if (!actor)
+    if (!actorUtils::IsActorValid(actor))
     {
         return false;
     }
@@ -76,6 +76,7 @@ bool SimObj::Bind(Actor* actor, std::vector<std::string>& boneNames, config_t& c
         bound = true;
 
         things.clear();
+        actorColliders.clear();
 
         if (actorUtils::IsActorMale(actor))
         {
@@ -88,7 +89,13 @@ bool SimObj::Bind(Actor* actor, std::vector<std::string>& boneNames, config_t& c
 
         raceEid = actorUtils::GetActorRaceEID(actor);
 
-        AddBonesToThings(actor, boneNames);
+        auto success = AddBonesToThings(actor, boneNames);
+        if (!success)
+        {
+            return false;
+        }
+
+        //GroundCollisionEnabled = CreateActorColliders(actor, actorColliders);
         UpdateConfigs(config);
         return  true;
     }
@@ -121,8 +128,10 @@ void SimObj::SetActorKey(UInt64 key)
     currentActorKey = key;
 }
 
-void SimObj::Update(Actor* actor)
+void SimObj::Update(Actor* actor, bool collisionsEnabled)
 {
+    bool stopPhysics = false;
+
     if (!bound ||
         IsActorInPowerArmor(actor) ||
         NULL == GetBaseSkeleton(actor))
@@ -130,8 +139,14 @@ void SimObj::Update(Actor* actor)
         return;
     }
 
+    if (!actorUtils::IsActorValid(actor))
+    {
+        return;
+    }
+
     for (auto& t : things)
     {
+
         // Might be a better way to do this
         auto actorBoneMapIter = boneIgnores.find(actor->formID);
         if (actorBoneMapIter != boneIgnores.end())
@@ -149,7 +164,16 @@ void SimObj::Update(Actor* actor)
 
         if (t.second.isEnabled)
         {
+            t.second.ActorCollisionsEnabled = collisionsEnabled;
+            t.second.groundPos = this->groundPos;
             t.second.UpdateThing(actor);
+
+            // Update collision sync
+            if (t.second.VirtualCollisionEnabled)
+            {
+                std::string boneName = std::string(t.second.boneName.c_str());
+                NodeCollisionSync[boneName] = t.second.collisionSync;
+            }
         }
     }
 }

@@ -194,16 +194,10 @@ void UpdateActors()
 	TESObjectCELL* cell = (*g_player)->parentCell;
 	if (!cell)
 		return;
-		
-    NiPoint3 actorPos;
 
     // If no player then return
     auto player = DYNAMIC_CAST(LookupFormByID(0x14), TESForm, Actor);
-    if (!player || !player->unkF0) goto FAILED;
-
-    // If player has no cell then return
-    auto cell = player->parentCell;
-    if (!cell) goto FAILED;
+    if (!player || !player->unkF0) return;
 
     float xLow = 9999999.0; 
     float xHigh = -9999999.0;
@@ -229,44 +223,57 @@ void UpdateActors()
             {
                 // Attempt to get actors
                 auto actor = DYNAMIC_CAST(ref, TESObjectREFR, Actor);
-                if (actor && actor->unkF0)
+                bool isValid = true;
+                auto actorDistance = 1024.0f; // TODO
+                auto actorBounceDistance = 4096.0f; // TODO
+                float actorDistSqr = 0.0;
+
+                if (!IsActorValid(actor))
                 {
+                    continue;
+                }
 
-                    if (actor->unkF0->rootNode)
+                if (actor->unkF0->rootNode)
+                {
+                    //Getting border values;
+                    NiPoint3 relativeActorPos = actor->unkF0->rootNode->m_worldTransform.pos - (*g_player)->unkF0->rootNode->m_worldTransform.pos;
+
+                    actorDistSqr = magnitudePwr2(relativeActorPos);
+
+                    if (actorDistSqr > actorBounceDistance)
                     {
-                        //Getting border values;
-                        actorPos = actor->unkF0->rootNode->m_worldTransform.pos;
-
-                        if (distanceNoSqrt((*g_player)->unkF0->rootNode->m_worldTransform.pos, actorPos) > actorDistance) {
-                            logger.Info("Actor with form ID %08x too far away\n", actor->formID);
-                            continue;
-                        }
-
+                        isValid = false;
                     }
+
+                    if (distanceNoSqrt((*g_player)->unkF0->rootNode->m_worldTransform.pos, relativeActorPos) > actorDistance) {
+                        logger.Info("Actor with form ID %08x too far away\n", actor->formID);
+                        continue;
+                    }
+
+                }
                     
-                    // If actor is not being tracked yet
-                    if (actors.count(actor->formID) == 0)
+                // If actor is not being tracked yet
+                if (actors.count(actor->formID) == 0)
+                {
+                    // If actor should not be tracked, don't add it.
+                    if (IsActorTrackable(actor))
                     {
-                        // If actor should not be tracked, don't add it.
-                        if (IsActorTrackable(actor))
-                        {
-                            //logger.Info("Tracking Actor with form ID %08x in cell %ld, race is %s, gender is %d\n", 
-                            //    actor->formID, actor->parentCell->formID,
-                            //    actor->race->editorId.c_str(),
-                            //    IsActorMale(actor));
-                            // Make SimObj and place new element in Things
-                            auto obj = SimObj(actor);
-							obj.actorDistSqr = actorDistSqr;
-                            actors.insert(std::make_pair(actor->formID, obj));
-                            actorEntries.push_back(ActorEntry{ actor->formID, actor, actorDistSqr, actorDistSqr <= actorDistance });
-                        }
+                        //logger.Info("Tracking Actor with form ID %08x in cell %ld, race is %s, gender is %d\n", 
+                        //    actor->formID, actor->parentCell->formID,
+                        //    actor->race->editorId.c_str(),
+                        //    IsActorMale(actor));
+                        // Make SimObj and place new element in Things
+                        auto simObj = SimObj(actor);
+						//obj.actorDistSqr = actorDistSqr;
+                        actors.insert(std::make_pair(actor->formID, simObj));
+                        actorEntries.push_back(ActorEntry{ actor->formID, actor, actorDistSqr, actorDistSqr  <= actorDistance });
                     }
-                    else if (IsActorValid(actor) && isValid)
-                    {
-                        // If already tracked then add to entry list for this frame
-						actors[actor->formID].actorDistSqr = actorDistSqr;
-                        actorEntries.push_back(ActorEntry{ actor->formID, actor });
-                    }
+                }
+                else if (isValid)
+                {
+                    // If already tracked then add to entry list for this frame
+					//actors[actor->formID].actorDistSqr = actorDistSqr;
+                    actorEntries.push_back(ActorEntry{ actor->formID, actor, actorDistSqr, actorDistSqr <= actorDistance });
                 }
             }
         }
@@ -282,33 +289,56 @@ void UpdateActors()
 	long colliderSphereCount = 0;
 	long colliderCapsuleCount = 0;
 
-        std::vector<long> ids;
-        std::vector<long> hashIdList;
-        for (int i = 0; i < otherColliders.size(); i++)
+    for (size_t u = 0; u < actorEntries.size(); u++)
+    {
+        if (actorEntries[u].collisionsEnabled == true)
         {
-            //LOG_INFO("otherColliders[%d]: %s",i, otherColliders[i].CollisionObject->m_name);
+            auto objIt = actors.find(actorEntries[u].id);
+            if (objIt != actors.end())
 
-            ids.clear();
-            for (int j = 0; j < otherColliders[i].collisionSpheres.size(); j++)
             {
-                hashIdList = GetHashIdsFromPos(otherColliders[i].collisionSpheres[j].worldPos, otherColliders[i].collisionSpheres[j].radius, hashSize);
+                UpdateColliderPositions(objIt->second.actorColliders, objIt->second.NodeCollisionSync);
 
-                for (int m = 0; m < hashIdList.size(); m++)
+                for (auto& collider : objIt->second.actorColliders)
                 {
-                    // Place all unfound IDs into ids and partitions
-                    if (std::find(ids.begin(), ids.end(), hashIdList[m]) != ids.end())
-                        continue;
-                    else
+                    std::vector<int> ids;
+                    std::vector<int> hashIdList;
+                    for (int j = 0; j < collider.second.collisionSpheres.size(); j++)
                     {
-                        //LOG_INFO("ids.emplace_back(%d)", hashIdList[m]);
-                        ids.emplace_back(hashIdList[m]);
-                        partitions[hashIdList[m]].partitionCollisions.emplace_back(otherColliders[i]);
+                        hashIdList = GetHashIdsFromPos(collider.second.collisionSpheres[j].worldPos, collider.second.collisionSpheres[j].radius);
+
+                        for (int m = 0; m < hashIdList.size(); m++)
+                        {
+                            if (std::find(ids.begin(), ids.end(), hashIdList[m]) == ids.end())
+                            {
+                                //LOG_INFO("ids.emplace_back(%d)", hashIdList[m]);
+                                ids.emplace_back(hashIdList[m]);
+                                partitions[hashIdList[m]].partitionCollisions.push_back(collider.second);
+                            }
+                        }
+                    }
+
+                    for (int j = 0; j < collider.second.collisionCapsules.size(); j++)
+                    {
+                        hashIdList = GetHashIdsFromPos((collider.second.collisionCapsules[j].End1_worldPos + collider.second.collisionCapsules[j].End2_worldPos)
+                            , (collider.second.collisionCapsules[j].End1_radius + collider.second.collisionCapsules[j].End2_radius) * 0.5f);
+                        for (int m = 0; m < hashIdList.size(); m++)
+                        {
+                            if (std::find(ids.begin(), ids.end(), hashIdList[m]) == ids.end())
+                            {
+                                //LOG_INFO("ids.emplace_back(%d)", hashIdList[m]);
+                                ids.emplace_back(hashIdList[m]);
+                                partitions[hashIdList[m]].partitionCollisions.push_back(collider.second);
+                            }
+                        }
                     }
                 }
             }
         }
-        //LOG_INFO("End of collider hashing");
-        //LOG_INFO("Partitions size=%d", partitions.size());
+    }
+    logger.Info("Collider sphere count = %ld", colliderSphereCount);
+    logger.Info("Collider capsule count = %ld", colliderCapsuleCount);
+
 
     //static bool done = false;
     //if (!done && player->loadedState->node) {
@@ -416,7 +446,7 @@ void UpdateActors()
                         auto& composedConfig = BuildConfigForActor(a.actor, key);
                         simObj.UpdateConfigs(composedConfig);
                     }
-                    simObj.Update(a.actor);
+                    simObj.Update(a.actor, a.collisionsEnabled);
                 }
             }
         });
@@ -441,7 +471,7 @@ void UpdateActors()
     debugtimelog_framecount++;
 #endif
 
-FAILED:
-    return;
+//FAILED:
+//    return;
 }
 

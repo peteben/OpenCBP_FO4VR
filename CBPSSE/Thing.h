@@ -33,7 +33,6 @@ inline void RefreshNode(NiAVObject* node)
 
 class Thing
 {
-    BSFixedString boneName;
     NiPoint3 oldWorldPos;
     NiPoint3 oldWorldPosRot;
     //NiPoint3 oldLocalDiff;
@@ -48,6 +47,8 @@ class Thing
     Actor* m_actor;
 
 public:
+    BSFixedString boneName;
+
     bool isEnabled;
 
     float stiffness = 0.5f;
