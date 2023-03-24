@@ -3,9 +3,6 @@
 
 #pragma warning(disable : 4996)
 
-// TODO make better macro
-// #define LOG_ON
-
 CbpLogger::CbpLogger(const char* fname)
 {
 #ifdef LOG_ON
@@ -17,32 +14,40 @@ CbpLogger::CbpLogger(const char* fname)
 #endif
 }
 
-void CbpLogger::Info(const char* fmt...)
+void CbpLogger::Verbose(const char* args...)
 {
-#ifdef LOG_ON
     if (handle)
     {
         va_list argptr;
-        va_start(argptr, fmt);
-        vfprintf(handle, fmt, argptr);
+        va_start(argptr, args);
+        vfprintf(handle, args, argptr);
         va_end(argptr);
         fflush(handle);
     }
-#endif
 }
 
-void CbpLogger::Error(const char* fmt...)
+void CbpLogger::Info(const char* args...)
 {
-#ifdef LOG_ON
     if (handle)
     {
         va_list argptr;
-        va_start(argptr, fmt);
-        vfprintf(handle, fmt, argptr);
+        va_start(argptr, args);
+        vfprintf(handle, args, argptr);
         va_end(argptr);
         fflush(handle);
     }
-#endif
+}
+
+void CbpLogger::Error(const char* args...)
+{
+    if (handle)
+    {
+        va_list argptr;
+        va_start(argptr, args);
+        vfprintf(handle, args, argptr);
+        va_end(argptr);
+        fflush(handle);
+    }
 }
 
 CbpLogger logger("Data\\F4SE\\Plugins\\cbpc.log");

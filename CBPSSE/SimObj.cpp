@@ -32,7 +32,7 @@ SimObj::~SimObj()
 
 bool SimObj::AddBonesToThings(Actor* actor, std::vector<std::string>& boneNames)
 {
-    //logger.Error("%s\n", __func__);
+    //LOG_ERROR("%s\n", __func__);
     if (!actor)
     {
         return false;
@@ -45,17 +45,17 @@ bool SimObj::AddBonesToThings(Actor* actor, std::vector<std::string>& boneNames)
         {
             if (!useWhitelist || (IsBoneInWhitelist(actor, b) && useWhitelist))
             {
-                //logger.Error("%s: adding Bone %s for actor %08x\n", __func__, b.c_str(), actor->formID);
+                //LOG_ERROR("%s: adding Bone %s for actor %08x\n", __func__, b.c_str(), actor->formID);
                 BSFixedString cs(b.c_str());
                 auto bone = loadedData->rootNode->GetObjectByName(&cs);
                 auto findBone = things.find(b);
                 if (!bone)
                 {
-                    logger.Info("%s: Failed to find Bone %s for actor %08x\n", __func__, b.c_str(), actor->formID);
+                    LOG_INFO("%s: Failed to find Bone %s for actor %08x\n", __func__, b.c_str(), actor->formID);
                 }
                 else if (findBone == things.end())
                 {
-                    //logger.info("Doing Bone %s for actor %08x\n", b, actor->formID);
+                    //LOG_INFO("Doing Bone %s for actor %08x\n", b, actor->formID);
                     things.insert(std::make_pair(b, Thing(bone, cs, actor)));
                 }
             }
@@ -68,6 +68,7 @@ bool SimObj::Bind(Actor* actor, std::vector<std::string>& boneNames, config_t& c
 {
     if (!actorUtils::IsActorValid(actor))
     {
+        LOG_ERROR("%s: Invalid actor. %s\n", __func__);
         return false;
     }
     auto loadedData = actor->unkF0;
@@ -95,7 +96,7 @@ bool SimObj::Bind(Actor* actor, std::vector<std::string>& boneNames, config_t& c
             return false;
         }
 
-        //GroundCollisionEnabled = CreateActorColliders(actor, actorColliders);
+        GroundCollisionEnabled = CreateActorColliders(actor, actorColliders);
         UpdateConfigs(config);
         return  true;
     }
@@ -141,6 +142,7 @@ void SimObj::Update(Actor* actor, bool collisionsEnabled)
 
     if (!actorUtils::IsActorValid(actor))
     {
+        LOG_ERROR("%s: Invalid actor. %s\n", __func__);
         return;
     }
 
@@ -184,7 +186,7 @@ bool SimObj::UpdateConfigs(config_t& config)
     {
         //concurrency::parallel_for_each(things.begin(), things.end(), [&](auto& thing)
         //    {
-                //logger.Info("%s: Updating config for Thing %s\n", __func__, thing.first.c_str());
+        LOG_INFO("%s: Updating config for Thing %s\n", __func__, thing.first.c_str());
 
         if (config.count(thing.first) > 0)
         {

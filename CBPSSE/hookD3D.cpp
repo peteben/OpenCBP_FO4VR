@@ -168,7 +168,7 @@ RelocPtr <void *> ProcessTasks_HookTarget_Enter(0x005BAB10); //For VR 1.4.15
 
 DetourXS renderDetour;
 void DoHook() {
-logger.info("Attempting Game Hook\n");
+LOG_INFO("Attempting Game Hook\n");
 // Useful for finding the addresses
 //CreateThread(NULL, 0, HookCreateFn, NULL, 0, NULL);
 
@@ -197,7 +197,7 @@ RelocPtr <void*> ProcessEventQueue_Internal(0x0211CF80);
 DetourXS renderDetour;
 
 void DoHook() {
-	logger.Info("Attempting Game Hook\n");
+	LOG_INFO("Attempting Game Hook\n");
 
 	renderDetour.Create((LPVOID)ProcessEventQueue_Internal.GetPtr(), hk_ProcessEventQueue_Internal, (LPVOID*)(&orig_ProcessEventQueue_Internal));
 }

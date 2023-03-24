@@ -59,7 +59,7 @@ UInt32 GetFormIDFromString(std::string const& configString)
     {
         if (!std::isxdigit(digit))
         {
-            logger.Error("Invalid FormID %s, invalid hex character %c\n", pluginFormID.c_str(), digit);
+            LOG_ERROR("Invalid FormID %s, invalid hex character %c\n", pluginFormID.c_str(), digit);
             return -1;
         }
     }
@@ -73,7 +73,7 @@ UInt32 GetFormIDFromString(std::string const& configString)
 
         if (!modInfo)
         {
-            logger.Error("Plugin with name %s does not exist\n", pluginName.c_str());
+            LOG_ERROR("Plugin with name %s does not exist\n", pluginName.c_str());
             return -1;
         }
 
@@ -82,7 +82,7 @@ UInt32 GetFormIDFromString(std::string const& configString)
 
         if (pluginFormID.length() > maxPartialIdLength)
         {
-            logger.Error("Invalid FormID %s, too many characters when%s plugin name specified\n", pluginFormID.c_str(), isLightPlugin ? " light" : "");
+            LOG_ERROR("Invalid FormID %s, too many characters when%s plugin name specified\n", pluginFormID.c_str(), isLightPlugin ? " light" : "");
             return -1;
         }
 
@@ -93,7 +93,7 @@ UInt32 GetFormIDFromString(std::string const& configString)
     {
         if (pluginFormID.length() > 8)
         {
-            logger.Error("Invalid FormID %s, too many characters\n", pluginFormID.c_str());
+            LOG_ERROR("Invalid FormID %s, too many characters\n", pluginFormID.c_str());
             return -1;
         }
     }
@@ -103,7 +103,7 @@ UInt32 GetFormIDFromString(std::string const& configString)
 
 bool LoadConfig()
 {
-    logger.Info("loadConfig\n");
+    LOG_INFO("loadConfig\n");
 
     config_t configOverrides;
     std::map<UInt32, config_t> configArmorBoneOverrides;
@@ -126,9 +126,9 @@ bool LoadConfig()
     INIReader configReader("Data\\F4SE\\Plugins\\ocbp.ini");
     if (configReader.ParseError() < 0)
     {
-        logger.Error("Can't load 'ocbp.ini'\n");
+        LOG_ERROR("Can't load 'ocbp.ini'\n");
     }
-    logger.Error("Reading CBP Config\n");
+    LOG_ERROR("Reading CBP Config\n");
 
     // Read general settings
     playerOnly = configReader.GetBoolean("General", "playerOnly", false);
@@ -441,7 +441,7 @@ bool LoadConfig()
                     }
                     whitelistName = whitelistName.substr(commaPos + 1);
 
-                    //logger.Info("<token:> %s, <rest:> %s, <commaPos:> %d, <colonPos:> %d\n", token.c_str(), whitelistName.c_str(), commaPos >= 0, colonPos < 0);
+                    //LOG_INFO("<token:> %s, <rest:> %s, <commaPos:> %d, <colonPos:> %d\n", token.c_str(), whitelistName.c_str(), commaPos >= 0, colonPos < 0);
                 } while (commaPos != -1);
             }
         }
@@ -564,7 +564,7 @@ bool LoadConfig()
     DumpUsedSlotsToLog();
     DumpConfigToLog();
 
-    logger.Error("Finished CBP Config\n");
+    LOG_ERROR("Finished CBP Config\n");
     return reloadActors;
 }
 
@@ -572,57 +572,57 @@ bool LoadConfig()
 void DumpConfigToLog()
 {
     // Log contents of config
-    //logger.Info("***** Config Dump *****\n");
+    //LOG_INFO("***** Config Dump *****\n");
     //for (auto & section : config)
     //{
-    //    logger.Info("[%s]\n", section.first.c_str());
+    //    LOG_INFO("[%s]\n", section.first.c_str());
     //    for (auto & setting : section.second)
     //    {
-    //        logger.Info("%s=%f\n", setting.first.c_str(), setting.second);
+    //        LOG_INFO("%s=%f\n", setting.first.c_str(), setting.second);
     //    }
     //}
 
-    logger.Info("***** ConfigArmorOverride Dump *****\n");
+    LOG_INFO("***** ConfigArmorOverride Dump *****\n");
     for (auto & conf : configArmorOverrideMap)
     {
-        logger.Info("** Slot-Armor Map priority %d **\n", conf.first);
-        logger.Info("[Slots]\n");
+        LOG_INFO("** Slot-Armor Map priority %d **\n", conf.first);
+        LOG_INFO("[Slots]\n");
         for (auto slot : conf.second.slots)
         {
-            logger.Info("%ul\n", slot);
+            LOG_INFO("%ul\n", slot);
         }
-        logger.Info("[Armors]\n");
+        LOG_INFO("[Armors]\n");
         for (auto formID : conf.second.armors)
         {
-            logger.Info("%ul\n", formID);
+            LOG_INFO("%ul\n", formID);
         }
-        logger.Info("** Config priority %d **\n", conf.first);
+        LOG_INFO("** Config priority %d **\n", conf.first);
         for (auto & section : conf.second.config)
         {
-            logger.Info("[%s]\n", section.first.c_str());
+            LOG_INFO("[%s]\n", section.first.c_str());
             for (auto & setting : section.second)
             {
-                logger.Info("%s=%f\n", setting.first.c_str(), setting.second);
+                LOG_INFO("%s=%f\n", setting.first.c_str(), setting.second);
             }
         }
     }
 
-    logger.Info("***** ConfigActorOverride Dump *****\n");
+    LOG_INFO("***** ConfigActorOverride Dump *****\n");
     for (auto & conf : configActorOverrideMap)
     {
-        logger.Info("** Slot-Actor Map priority %d **\n", conf.first);
-        logger.Info("[Actor]\n");
+        LOG_INFO("** Slot-Actor Map priority %d **\n", conf.first);
+        LOG_INFO("[Actor]\n");
         for (auto & formID : conf.second.actors)
         {
-            logger.Info("%d\n", formID);
+            LOG_INFO("%d\n", formID);
         }
-        logger.Info("** Config priority %d **\n", conf.first);
+        LOG_INFO("** Config priority %d **\n", conf.first);
         for (auto & section : conf.second.config)
         {
-            logger.Info("[%s]\n", section.first.c_str());
+            LOG_INFO("[%s]\n", section.first.c_str());
             for (auto & setting : section.second)
             {
-                logger.Info("%s=%f\n", setting.first.c_str(), setting.second);
+                LOG_INFO("%s=%f\n", setting.first.c_str(), setting.second);
             }
         }
     }
@@ -630,23 +630,23 @@ void DumpConfigToLog()
 
 void DumpWhitelistToLog()
 {
-    logger.Info("***** Whitelist Dump *****\n");
+    LOG_INFO("***** Whitelist Dump *****\n");
     for (auto & section : whitelist)
     {
-        logger.Info("[%s]\n", section.first.c_str());
+        LOG_INFO("[%s]\n", section.first.c_str());
         for (auto & setting : section.second)
         {
-            logger.Info("%s= female: %d, male: %d\n", setting.first.c_str(), setting.second.female, setting.second.male);
+            LOG_INFO("%s= female: %d, male: %d\n", setting.first.c_str(), setting.second.female, setting.second.male);
         }
     }
 }
 
 void DumpUsedSlotsToLog()
 {
-    logger.Info("***** UsedSlots Dump *****\n");
+    LOG_INFO("***** UsedSlots Dump *****\n");
     for (auto& v : usedSlots)
     {
-        logger.Info("used slot : %d\n", v);
+        LOG_INFO("used slot : %d\n", v);
     }
 }
 

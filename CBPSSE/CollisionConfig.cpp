@@ -141,12 +141,12 @@ void LoadCollisionConfig()
             }
         }
         DumpCollisionConfigsToLog();
-        logger.Info("Collision Config file is loaded successfully.\n");
+        LOG_INFO("Collision Config file is loaded successfully.\n");
         return;
 
     }
 
-    logger.Info("Collision Config file is not loaded.\n");
+    LOG_INFO("Collision Config file is not loaded.\n");
     return;
 }
 
@@ -240,7 +240,7 @@ void printSpheresMessage(std::string message, std::vector<Sphere> spheres)
         message += ",";
         message += std::to_string(spheres[i].radius);
     }
-    logger.Info("%s\n", message.c_str());
+    LOG_INFO("%s\n", message.c_str());
 }
 
 std::vector<std::string> ConfigLineVectorToStringVector(std::vector<ConfigLine> linesList)
@@ -360,29 +360,29 @@ bool GetSpecificNPCBounceConfigForActor(Actor* actor)
 
 void DumpCollisionConfigsToLog()
 {
-    logger.Info("***** Affected Node Lines Dump *****\n");
+    LOG_INFO("***** Affected Node Lines Dump *****\n");
     for (auto & line : AffectedNodeLines)
     {
-        logger.Info("%s\n", line.c_str());
+        LOG_INFO("%s\n", line.c_str());
     }
 
-    logger.Info("***** Collider Node Lines Dump *****\n");
+    LOG_INFO("***** Collider Node Lines Dump *****\n");
     for (auto & line : ColliderNodeLines)
     {
-        logger.Info("%s\n", line.c_str());
+        LOG_INFO("%s\n", line.c_str());
     }
 
-    logger.Info("***** Affected Nodes Dump *****\n");
+    LOG_INFO("***** Affected Nodes Dump *****\n");
     for (auto & node : AffectedNodesList)
     {
-        logger.Info("%s\n", node.NodeName.c_str());
+        LOG_INFO("%s\n", node.NodeName.c_str());
         printSpheresMessage("", node.CollisionSpheres);
     }
 
-    logger.Info("***** Collider Nodes Dump *****\n");
+    LOG_INFO("***** Collider Nodes Dump *****\n");
     for (auto & node : ColliderNodesList)
     {
-        logger.Info("%s\n", node.NodeName.c_str());
+        LOG_INFO("%s\n", node.NodeName.c_str());
         printSpheresMessage("", node.CollisionSpheres);
     }
 }
@@ -430,10 +430,10 @@ void DumpCollisionConfigsToLog()
 //            }
 //        }
 //
-//        logger.Error("Player Collision Event Config file is loaded successfully.");
+//        LOG_ERROR("Player Collision Event Config file is loaded successfully.");
 //        return;
 //    }
 //
-//    logger.Error("Player Collision Event Config file is not loaded.");
+//    LOG_ERROR("Player Collision Event Config file is not loaded.");
 //    return;
 //}

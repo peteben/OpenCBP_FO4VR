@@ -32,64 +32,64 @@ void MessageHandler(F4SEMessagingInterface::Message * msg)
     {
     case F4SEMessagingInterface::kMessage_GameDataReady:
     {
-        logger.Info("kMessage_GameDataReady\n");
+        LOG_INFO("kMessage_GameDataReady\n");
         // Load initial config
-        logger.Error("Loading Config");
+        LOG_ERROR("Loading Config");
         LoadConfig();
         LoadCollisionConfig();
-        logger.Error("Hooking Game");
+        LOG_ERROR("Hooking Game");
         DoHook();
-        logger.Error("CBP Load Complete\n");
+        LOG_ERROR("CBP Load Complete\n");
     }
     break;
     case F4SEMessagingInterface::kMessage_GameLoaded:
     {
-        logger.Info("kMessage_GameLoaded\n");
+        LOG_INFO("kMessage_GameLoaded\n");
     }
     break;
     case F4SEMessagingInterface::kMessage_NewGame:
     {
-        logger.Info("kMessage_NewGame\n");
+        LOG_INFO("kMessage_NewGame\n");
     }
     break;
     case F4SEMessagingInterface::kMessage_PreLoadGame:
     {
-        logger.Info("kMessage_PreLoadGame\n");
+        LOG_INFO("kMessage_PreLoadGame\n");
     }
     break;
     case F4SEMessagingInterface::kMessage_PostLoad:
     {
-        logger.Info("kMessage_PostLoad\n");
+        LOG_INFO("kMessage_PostLoad\n");
     }
     break;
     case F4SEMessagingInterface::kMessage_PostPostLoad:
     {
-        logger.Info("kMessage_PostPostLoad\n");
+        LOG_INFO("kMessage_PostPostLoad\n");
     }
     break;
     case F4SEMessagingInterface::kMessage_PostLoadGame:
     {
-        logger.Info("kMessage_PostLoadGame\n");
+        LOG_INFO("kMessage_PostLoadGame\n");
     }
     break;
     case F4SEMessagingInterface::kMessage_PreSaveGame:
     {
-        logger.Info("kMessage_PreSaveGame\n");
+        LOG_INFO("kMessage_PreSaveGame\n");
     }
     break;
     case F4SEMessagingInterface::kMessage_PostSaveGame:
     {
-        logger.Info("kMessage_PostSaveGame\n");
+        LOG_INFO("kMessage_PostSaveGame\n");
     }
     break;
     case F4SEMessagingInterface::kMessage_DeleteGame:
     {
-        logger.Info("kMessage_DeleteGame\n");
+        LOG_INFO("kMessage_DeleteGame\n");
     }
     break;
     case F4SEMessagingInterface::kMessage_InputLoaded:
     {
-        logger.Info("kMessage_InputLoaded\n");
+        LOG_INFO("kMessage_InputLoaded\n");
     }
     break;
 
@@ -102,8 +102,8 @@ extern "C"
 
     bool F4SEPlugin_Query(const F4SEInterface * f4se, PluginInfo * info)
     {
-        logger.Info("OCBPC Physics F4SE Plugin\n");
-        logger.Error("Query called\n");
+        LOG_INFO("OCBPC Physics F4SE Plugin\n");
+        LOG_ERROR("Query called\n");
 
 
         // populate info structure
@@ -116,12 +116,12 @@ extern "C"
 
         if (f4se->isEditor)
         {
-            logger.Error("loaded in editor, marking as incompatible\n");
+            LOG_ERROR("loaded in editor, marking as incompatible\n");
             return false;
         }
         else if (f4se->runtimeVersion != RUNTIME_VERSION)
         {
-            logger.Error("unsupported runtime version %08X", f4se->runtimeVersion);
+            LOG_ERROR("unsupported runtime version %08X", f4se->runtimeVersion);
             return false;
         }
         // supported runtime version
@@ -132,18 +132,18 @@ extern "C"
             _WARNING("couldn't get papyrus interface");
         }
 
-        logger.Error("Query complete\n");
+        LOG_ERROR("Query complete\n");
         return true;
     }
 
     bool F4SEPlugin_Load(const F4SEInterface * f4se)
     {
-        logger.Error("CBPC Loading\n");
+        LOG_ERROR("CBPC Loading\n");
 
         g_task = (F4SETaskInterface *)f4se->QueryInterface(kInterface_Task);
         if (!g_task)
         {
-            logger.Error("Couldn't get Task interface\n");
+            LOG_ERROR("Couldn't get Task interface\n");
             return false;
         }
 
@@ -153,7 +153,7 @@ extern "C"
         g_messagingInterface = (F4SEMessagingInterface*)f4se->QueryInterface(kInterface_Messaging);
         if (!g_messagingInterface)
         {
-            logger.Error("Couldn't get messaging interface");
+            LOG_ERROR("Couldn't get messaging interface");
             return false;
         }
 

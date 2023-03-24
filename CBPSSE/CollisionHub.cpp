@@ -35,7 +35,7 @@ bool CreateActorColliders(Actor * actor, concurrency::concurrent_unordered_map<s
 	
 	concurrency::concurrent_vector<ConfigLine>* ColliderNodesListPtr;
 	
-	SpecificNPCConfig snc;
+	//SpecificNPCConfig snc;
 
 	if (actor)
 	{
@@ -55,14 +55,16 @@ bool CreateActorColliders(Actor * actor, concurrency::concurrent_unordered_map<s
 
 	//std::shared_mutex CH_read_lock;
 
-	concurrency::parallel_for (size_t(0), ColliderNodesListPtr->size(), [&](size_t j)
+	//concurrency::parallel_for (size_t(0), ColliderNodesListPtr->size(), [&](size_t j)
+	//{
+	for (size_t j = 0; j < ColliderNodesListPtr->size(); j++)
 	{
-		if (ColliderNodesListPtr->at(j).NodeName.compare(GroundReferenceBone) == 0) //detecting NPC Root [Root] node for ground collision
-		{
-			GroundCollisionEnabled = true;
-		}
-		else
-		{
+		//if (ColliderNodesListPtr->at(j).NodeName.compare(GroundReferenceBone) == 0) //detecting NPC Root [Root] node for ground collision
+		//{
+		//	GroundCollisionEnabled = true;
+		//}
+		//else
+		//{
 			BSFixedString fs(ColliderNodesListPtr->at(j).NodeName.c_str());
 			//CH_read_lock.lock();
 			NiAVObject* node = mostInterestingRoot->GetObjectByName(&fs);
@@ -76,22 +78,25 @@ bool CreateActorColliders(Actor * actor, concurrency::concurrent_unordered_map<s
 
 				actorCollidersList.insert(std::make_pair(ColliderNodesListPtr->at(j).NodeName, newCol));
 			}
-		}
-	});
+		//}
+	}
+	//});
 	return GroundCollisionEnabled;
 }
 
 
 void UpdateColliderPositions(concurrency::concurrent_unordered_map<std::string, Collision> &colliderList, concurrency::concurrent_unordered_map<std::string, NiPoint3> NodeCollisionSyncList)
 {
-	concurrency::parallel_for_each(colliderList.begin(), colliderList.end(), [&](auto& collider)
+	//concurrency::parallel_for_each(colliderList.begin(), colliderList.end(), [&](auto& collider)
+	//{
+	for (auto& collider : colliderList)
 	{
 		NiPoint3 VirtualOffset = emptyPoint;
 
 		if (NodeCollisionSyncList.find(collider.second.colliderNodeName) != NodeCollisionSyncList.end())
 			VirtualOffset = NodeCollisionSyncList[collider.second.colliderNodeName];
 
-		float colliderNodescale = 1.0f - ((1.0f - (collider.second.CollisionObject->m_worldTransform.scale / collider.second.actorBaseScale)));
+		float colliderNodescale = 1.0f;// -((1.0f - (collider.second.CollisionObject->m_worldTransform.scale / collider.second.actorBaseScale)));
 
 		for (int j = 0; j < collider.second.collisionSpheres.size(); j++)
 		{
@@ -106,7 +111,8 @@ void UpdateColliderPositions(concurrency::concurrent_unordered_map<std::string, 
 			collider.second.collisionCapsules[k].End2_worldPos = collider.second.CollisionObject->m_worldTransform.pos + (collider.second.CollisionObject->m_worldTransform.rot * collider.second.collisionCapsules[k].End2_offset) + VirtualOffset;
 			collider.second.collisionCapsules[k].End2_radiuspwr2 = collider.second.collisionCapsules[k].End2_radius * collider.second.collisionCapsules[k].End2_radius;
 		}
-	});
+	}
+	//});
 }
 
 

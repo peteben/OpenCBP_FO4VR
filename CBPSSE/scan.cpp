@@ -86,7 +86,7 @@ void DumpTransform(NiTransform t)
 bool visitObjects(NiAVObject* parent, std::function<bool(NiAVObject*, int)> functor, int depth = 0)
 {
     if (!parent) return false;
-    NiNode * node = parent->GetAsNiNode();
+    NiNode* node = parent->GetAsNiNode();
     if (node)
     {
         if (functor(parent, depth))
@@ -114,15 +114,15 @@ std::string spaces(int n)
     return s;
 }
 
-bool printStuff(NiAVObject * avObj, int depth)
+bool printStuff(NiAVObject* avObj, int depth)
 {
     std::string sss = spaces(depth);
-    const char * ss = sss.c_str();
-    //logger.info("%savObj Name = %s, RTTI = %s\n", ss, avObj->m_name, avObj->GetRTTI()->name);
+    const char* ss = sss.c_str();
+    //LOG_INFO("%savObj Name = %s, RTTI = %s\n", ss, avObj->m_name, avObj->GetRTTI()->name);
 
     //NiNode *node = avObj->GetAsNiNode();
     //if (node) {
-    //	logger.info("%snode %s, RTTI %s\n", ss, node->m_name, node->GetRTTI()->name);
+    //	LOG_INFO("%snode %s, RTTI %s\n", ss, node->m_name, node->GetRTTI()->name);
     //}
     //return false;
 }
@@ -138,7 +138,7 @@ inline void safe_delete(T*& in)
 }
 bool compareActorEntries(const ActorEntry& entry1, const ActorEntry& entry2)
 {
-	return entry1.actorDistSqr < entry2.actorDistSqr;
+    return entry1.actorDistSqr < entry2.actorDistSqr;
 }
 
 //bool ActorIsInAngle(Actor* actor, float originalHeading, NiPoint3 cameraPosition)
@@ -164,7 +164,7 @@ bool compareActorEntries(const ActorEntry& entry1, const ActorEntry& entry2)
 //	return AngleDifference(originalHeading, heading) <= (actorAngle * 0.5f);
 //}
 
-TESObjectCELL * curCell = nullptr;
+TESObjectCELL* curCell = nullptr;
 
 
 void UpdateActors()
@@ -185,30 +185,30 @@ void UpdateActors()
     // we retain all state by actor ID, in a map - it's cleared on cell change
     actorEntries.clear();
 
-    //logger.error("scan Cell\n");
-	if (!(*g_player) || !(*g_player)->unkF0)
-	{
-		return;
-	}
-		
-	TESObjectCELL* cell = (*g_player)->parentCell;
-	if (!cell)
-		return;
+    //LOG_ERROR("scan Cell\n");
+    if (!(*g_player) || !(*g_player)->unkF0)
+    {
+        return;
+    }
+
+    TESObjectCELL* cell = (*g_player)->parentCell;
+    if (!cell)
+        return;
 
     // If no player then return
     auto player = DYNAMIC_CAST(LookupFormByID(0x14), TESForm, Actor);
     if (!player || !player->unkF0) return;
 
-    float xLow = 9999999.0; 
+    float xLow = 9999999.0;
     float xHigh = -9999999.0;
     float yLow = 9999999.0;
     float yHigh = -9999999.0;
     float zLow = 9999999.0;
     float zHigh = -9999999.0;
-    
+
     if (cell != curCell)
     {
-        logger.Error("cell change %d\n", cell->formID);
+        LOG_ERROR("cell change %d\n", cell->formID);
         curCell = cell;
         actors.clear();
         actorEntries.clear();
@@ -224,12 +224,14 @@ void UpdateActors()
                 // Attempt to get actors
                 auto actor = DYNAMIC_CAST(ref, TESObjectREFR, Actor);
                 bool isValid = true;
-                auto actorDistance = 1024.0f; // TODO
-                auto actorBounceDistance = 4096.0f; // TODO
+                auto actorDistance = 1024.0f; // TODO, 32 squared
+                auto actorBounceDistance = 4096.0f; // TODO, 64 squared
                 float actorDistSqr = 0.0;
+
 
                 if (!IsActorValid(actor))
                 {
+                    LOG_VERBOSE("%s: Actor in cell invalid for physics, ignoring. \n", __func__);
                     continue;
                 }
 
@@ -242,37 +244,37 @@ void UpdateActors()
 
                     if (actorDistSqr > actorBounceDistance)
                     {
+                        LOG_VERBOSE("Actor with form ID %08x too far away\n", actor->formID);
                         isValid = false;
                     }
-
-                    if (distanceNoSqrt((*g_player)->unkF0->rootNode->m_worldTransform.pos, relativeActorPos) > actorDistance) {
-                        logger.Info("Actor with form ID %08x too far away\n", actor->formID);
-                        continue;
-                    }
-
                 }
-                    
+
+                if (!isValid)
+                {
+                    continue;
+                }
+
                 // If actor is not being tracked yet
                 if (actors.count(actor->formID) == 0)
                 {
                     // If actor should not be tracked, don't add it.
                     if (IsActorTrackable(actor))
                     {
-                        //logger.Info("Tracking Actor with form ID %08x in cell %ld, race is %s, gender is %d\n", 
-                        //    actor->formID, actor->parentCell->formID,
-                        //    actor->race->editorId.c_str(),
-                        //    IsActorMale(actor));
+                        LOG_VERBOSE("Tracking Actor with form ID %08x in cell %ld, race is %s, gender is %d\n",
+                            actor->formID, actor->parentCell->formID,
+                            actor->race->editorId.c_str(),
+                            IsActorMale(actor));
                         // Make SimObj and place new element in Things
                         auto simObj = SimObj(actor);
-						//obj.actorDistSqr = actorDistSqr;
+                        //obj.actorDistSqr = actorDistSqr;
                         actors.insert(std::make_pair(actor->formID, simObj));
-                        actorEntries.push_back(ActorEntry{ actor->formID, actor, actorDistSqr, actorDistSqr  <= actorDistance });
+                        actorEntries.push_back(ActorEntry{ actor->formID, actor, actorDistSqr, actorDistSqr <= actorDistance });
                     }
                 }
-                else if (isValid)
+                else
                 {
                     // If already tracked then add to entry list for this frame
-					//actors[actor->formID].actorDistSqr = actorDistSqr;
+                    //actors[actor->formID].actorDistSqr = actorDistSqr;
                     actorEntries.push_back(ActorEntry{ actor->formID, actor, actorDistSqr, actorDistSqr <= actorDistance });
                 }
             }
@@ -282,24 +284,22 @@ void UpdateActors()
 
     partitions.clear();
 
-    //logger.Info("Starting collider hashing\n");
+    LOG_VERBOSE("%s: Starting collider hashing\n", __func__);
 
+    NiPoint3 playerPos = (*g_player)->unkF0->rootNode->m_worldTransform.pos;
+    long colliderSphereCount = 0;
+    long colliderCapsuleCount = 0;
 
-	NiPoint3 playerPos = (*g_player)->unkF0->rootNode->m_worldTransform.pos;
-	long colliderSphereCount = 0;
-	long colliderCapsuleCount = 0;
-
-    for (size_t u = 0; u < actorEntries.size(); u++)
+    for (auto& a : actorEntries)
     {
-        if (actorEntries[u].collisionsEnabled == true)
+        if (a.collisionsEnabled == true)
         {
-            auto objIt = actors.find(actorEntries[u].id);
-            if (objIt != actors.end())
-
+            auto simObjIter = actors.find(a.id);
+            if (simObjIter != actors.end())
             {
-                UpdateColliderPositions(objIt->second.actorColliders, objIt->second.NodeCollisionSync);
+                UpdateColliderPositions(simObjIter->second.actorColliders, simObjIter->second.NodeCollisionSync);
 
-                for (auto& collider : objIt->second.actorColliders)
+                for (auto& collider : simObjIter->second.actorColliders)
                 {
                     std::vector<int> ids;
                     std::vector<int> hashIdList;
@@ -316,6 +316,7 @@ void UpdateActors()
                                 partitions[hashIdList[m]].partitionCollisions.push_back(collider.second);
                             }
                         }
+                        colliderSphereCount++;
                     }
 
                     for (int j = 0; j < collider.second.collisionCapsules.size(); j++)
@@ -331,13 +332,14 @@ void UpdateActors()
                                 partitions[hashIdList[m]].partitionCollisions.push_back(collider.second);
                             }
                         }
+                        colliderCapsuleCount++;
                     }
                 }
             }
         }
     }
-    logger.Info("Collider sphere count = %ld", colliderSphereCount);
-    logger.Info("Collider capsule count = %ld", colliderCapsuleCount);
+    LOG_INFO("Collider sphere count = %ld ", colliderSphereCount);
+    LOG_INFO("Collider capsule count = %ld\n", colliderCapsuleCount);
 
 
     //static bool done = false;
@@ -346,9 +348,9 @@ void UpdateActors()
     //	BSFixedString cs("UUNP");
     //	auto bodyAV = player->loadedState->node->GetObjectByName(&cs.data);
     //	BSTriShape *body = bodyAV->GetAsBSTriShape();
-    //	logger.info("GetAsBSTriShape returned  %lld\n", body);
+    //	LOG_INFO("GetAsBSTriShape returned  %lld\n", body);
     //	auto geometryData = body->geometryData;
-    //	//logger.info("Num verts = %d\n", geometryData->m_usVertices);
+    //	//LOG_INFO("Num verts = %d\n", geometryData->m_usVertices);
 
 
     //	done = true;
@@ -365,7 +367,7 @@ void UpdateActors()
             auto actorsIterator = actors.find(a.id);
             if (actorsIterator == actors.end())
             {
-                //logger.error("Sim Object not found in tracked actors\n");
+                LOG_ERROR("Sim Object not found in tracked actors\n");
             }
             else
             {
@@ -387,12 +389,14 @@ void UpdateActors()
         }
     }
 
+    LOG_VERBOSE("%s: Creating sim objs.\n", __func__);
+
     for (auto& a : actorEntries)
     {
         auto actorsIterator = actors.find(a.id);
         if (actorsIterator == actors.end())
         {
-            //logger.error("Sim Object not found in tracked actors\n");
+            //LOG_ERROR("Sim Object not found in tracked actors\n");
         }
         else
         {
@@ -406,7 +410,7 @@ void UpdateActors()
                 if (gender != simObj.GetGender() ||
                     GetActorRaceEID(a.actor) != simObj.GetRaceEID())
                 {
-                    logger.Info("UpdateActors: Reset sim object\n");
+                    LOG_INFO("UpdateActors: Reset sim object\n");
                     simObj.Reset();
                 }
             }
@@ -415,37 +419,49 @@ void UpdateActors()
                 auto key = BuildActorKey(a.actor);
                 auto& composedConfig = BuildConfigForActor(a.actor, key);
 
-                //logger.Error("UpdateActors: Setting key for actor %x...\n", a.id);
+                LOG_VERBOSE("UpdateActors: Setting key for actor %x...\n", a.id);
                 simObj.SetActorKey(key);
                 simObj.Bind(a.actor, boneNames, composedConfig);
             }
         }
     }
 
+    LOG_VERBOSE("%s: Updating sim objs.\n", __func__);
+
     concurrency::parallel_for_each(actorEntries.begin(), actorEntries.end(), [&](const auto& a)
         {
+            LOG_VERBOSE("%s: Getting actor iter.\n", __func__);
+
             auto actorsIterator = actors.find(a.id);
             if (actorsIterator == actors.end())
             {
-                //logger.error("Sim Object not found in tracked actors\n");
+                LOG_ERROR("Sim Object not found in tracked actors\n");
             }
             else
             {
+                LOG_VERBOSE("%s: Getting sim obj.\n", __func__);
                 auto& simObj = actorsIterator->second;
 
                 if (simObj.IsBound())
                 {
+                    LOG_VERBOSE("%s: Getting sim obj key.\n", __func__);
+
                     UInt64 key = BuildActorKey(a.actor);
                     UInt64 simObjKey = simObj.GetActorKey();
+
+                    LOG_VERBOSE("%s: Gotten sim obj key.\n", __func__);
 
                     // Detect changes in actor+slots combination
                     if (key != simObjKey)
                     {
-                        logger.Error("UpdateActors: Key change detected for actor %08x.\n", a.actor->formID);
+                        LOG_ERROR("UpdateActors: Key change detected for actor %08x.\n", a.actor->formID);
                         simObj.SetActorKey(key);
                         auto& composedConfig = BuildConfigForActor(a.actor, key);
                         simObj.UpdateConfigs(composedConfig);
                     }
+
+                    LOG_VERBOSE("%s: Finally sim obj update.\n", __func__);
+
                     simObj.Update(a.actor, a.collisionsEnabled);
                 }
             }
@@ -463,7 +479,7 @@ void UpdateActors()
     //LOG_ERR("Collider Check Call Count: %d - Update Time = %lld ns", callCount, elapsedMicroseconds.QuadPart);
     if (debugtimelog_framecount % 1000 == 0)
     {
-        logger.Error("Average Update Time in 1000 frame = %lld ns\n", totaltime.QuadPart / debugtimelog_framecount);
+        LOG_ERROR("Average Update Time in 1000 frame = %lld ns\n", totaltime.QuadPart / debugtimelog_framecount);
         totaltime.QuadPart = 0;
         debugtimelog_framecount = 0;
         //totalcallcount = 0;
@@ -471,7 +487,7 @@ void UpdateActors()
     debugtimelog_framecount++;
 #endif
 
-//FAILED:
-//    return;
+    //FAILED:
+    return;
 }
 

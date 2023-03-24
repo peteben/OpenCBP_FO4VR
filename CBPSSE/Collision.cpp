@@ -92,7 +92,7 @@ bool Collision::IsItColliding(NiPoint3 &collisionDif, std::vector<Sphere> &thing
 				double Scalar = limitDistance - currentDistance; //Get vector scalar
 
 				collisionDif += GetVectorFromCollision(colSpherePosition, thingSpherePosition, Scalar, currentDistance); //Get collision vector
-				//logger.Info("%s is colliding with %s with percentage %f!\n", thingCollisionSpheres[j].NodeName.c_str(), collisionSpheres[i].NodeName.c_str(), difPercentage);
+				//LOG_INFO("%s is colliding with %s with percentage %f!\n", thingCollisionSpheres[j].NodeName.c_str(), collisionSpheres[i].NodeName.c_str(), difPercentage);
 
 				UpdateThingColliderPositions(collisionDif, thingCollisionSpheres, thingCollisionCapsules, CollisionConfig);
 			}			
