@@ -13,7 +13,7 @@ void Hooks_Camera_Init()
 }
 
 typedef void (* _SetCameraState)(TESCamera * camera, TESCameraState * newState);
-RelocAddr <_SetCameraState> SetCameraState(0x0082E930);
+RelocAddr <_SetCameraState> SetCameraState(0x0081EFF0);
 _SetCameraState SetCameraState_Original = nullptr;
 
 void SetCameraState_Hook(TESCamera * camera, TESCameraState * newCameraState)
@@ -42,6 +42,10 @@ void Hooks_Camera_Commit()
 			SetCameraState_Code(void * buf) : Xbyak::CodeGenerator(4096, buf)
 			{
 				Xbyak::Label retnLabel;
+				Xbyak::Label movedRetnLabel;
+
+				test(rdx, rdx);
+				jz(movedRetnLabel);
 
 				mov(ptr[rsp+0x08], rbx);
 				push(rdi);
@@ -49,7 +53,10 @@ void Hooks_Camera_Commit()
 				jmp(ptr [rip + retnLabel]);
 
 				L(retnLabel);
-				dq(SetCameraState.GetUIntPtr() + 6);
+				dq(SetCameraState.GetUIntPtr() + 0x0B);
+
+				L(movedRetnLabel);
+				ret();
 			}
 		};
 

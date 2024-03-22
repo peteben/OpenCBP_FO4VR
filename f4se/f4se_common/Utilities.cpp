@@ -56,7 +56,7 @@ const std::string & GetConfigPath()
 		std::string	runtimePath = GetRuntimeDirectory();
 		if(!runtimePath.empty())
 		{
-			s_configPath = runtimePath + "Data\\F4SE\\f4se.ini";
+			s_configPath = runtimePath + "Data\\F4SE\\f4sevr.ini";
 
 			_MESSAGE("config path = %s", s_configPath.c_str());
 		}

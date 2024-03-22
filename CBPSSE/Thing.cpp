@@ -220,14 +220,10 @@ void Thing::Update(Actor *actor) {
     }
 
     auto skeletonObj = obj;
-    NiAVObject * comObj;
     bool skeletonFound = false;
     while (skeletonObj->m_parent)
     {
-        if (skeletonObj->m_parent->m_name == BSFixedString(COM_boneName)) {
-            comObj = skeletonObj->m_parent;
-        }
-        else if (skeletonObj->m_parent->m_name == BSFixedString(skeletonNif_boneName)) {
+        if (skeletonObj->m_parent->m_name == BSFixedString(skeletonNif_boneName)) {
             skeletonObj = skeletonObj->m_parent;
             skeletonFound = true;
             break;

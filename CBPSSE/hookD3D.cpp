@@ -2,6 +2,9 @@
 //#include <D3DCommon.h>
 //#include <dxgi.h>
 //#include <d3d11.h>
+#include <f4se/GameAPI.h>
+#include <f4se/PluginAPI.h>
+#include "f4se/GameThreads.h"
 
 #include "log.h"
 #include "../detourxs-master/detourxs.h"
@@ -192,7 +195,8 @@ void hk_ProcessEventQueue_Internal(void *thisPtr)
 	UpdateActors();
 }
 
-RelocPtr <void*> ProcessEventQueue_Internal(0x0211CF80);
+// RelocPtr <void*> ProcessEventQueue_Internal(0x0211CF80);			//Flat FO4
+RelocPtr <void*> ProcessEventQueue_Internal(0x0219DC00);			// FO4VR
 
 DetourXS renderDetour;
 

@@ -16,11 +16,11 @@
 #define LOG_INPUT_HOOK 0
 
 typedef void (* _CreateMenuControlHandlers)(MenuControls * mem);
-RelocAddr <_CreateMenuControlHandlers> CreateMenuControlHandlers(0x012A80F0);
+RelocAddr <_CreateMenuControlHandlers> CreateMenuControlHandlers(0x01323870);
 _CreateMenuControlHandlers CreateMenuControlHandlers_Original = nullptr;
 
 typedef void (* _CreatePlayerControlHandlers)(PlayerControls * mem);
-RelocAddr <_CreatePlayerControlHandlers> CreatePlayerControlHandlers(0x00F44CC0);
+RelocAddr <_CreatePlayerControlHandlers> CreatePlayerControlHandlers(0x00FC2910);
 _CreatePlayerControlHandlers CreatePlayerControlHandlers_Original = nullptr;
 
 #if HOOK_RAW_INPUT
@@ -201,7 +201,8 @@ F4SEInputMenuHandler g_inputMenuHandler;
 void CreatePlayerControlHandlers_Hook(PlayerControls * playerControls)
 {
 	// Process F4SE handlers first so no events will be blocked
-	playerControls->inputEvents1.Push(&g_inputHandler);
+	// ### not working in VR build, need to check offsets
+//	playerControls->inputEvents1.Push(&g_inputHandler);
 
 	CreatePlayerControlHandlers_Original(playerControls);
 }
@@ -209,7 +210,7 @@ void CreatePlayerControlHandlers_Hook(PlayerControls * playerControls)
 void CreateMenuControlHandlers_Hook(MenuControls * menuControls)
 {
 	CreateMenuControlHandlers_Original(menuControls);
-	menuControls->inputEvents.Push(&g_inputMenuHandler);
+//	menuControls->inputEvents.Push(&g_inputMenuHandler);
 }
 
 void Hooks_Input_Init()

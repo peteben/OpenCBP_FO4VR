@@ -84,7 +84,7 @@ namespace Translation
 		ASSERT(SUCCEEDED(SHGetFolderPath(NULL, CSIDL_LOCAL_APPDATA, NULL, SHGFP_TYPE_CURRENT, appdataPath)));
 
 		std::string	modlistPath = appdataPath;
-		modlistPath += "\\Fallout4\\plugins.txt";
+		modlistPath += "\\Fallout4VR\\plugins.txt";
 
 		// Parse mod list file to acquire translation filenames
 		IFileStream modlistFile;

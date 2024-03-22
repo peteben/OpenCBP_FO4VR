@@ -1,11 +1,11 @@
 #include "f4se/PapyrusInterfaces.h"
 
 // 84C7A0FD630AF430626C929A1B9A7FC62FDC358A+1B1
-RelocPtr <IObjectHandlePolicy *> g_objectHandlePolicy(0x0671E578);
+RelocPtr <IObjectHandlePolicy *> g_objectHandlePolicy(0x06874E30);
 
-RelocAddr <_GetRefFromHandle> GetRefFromHandle(0x012C6590);
+RelocAddr <_GetRefFromHandle> GetRefFromHandle(0x0134B3A0);
 
-RelocAddr <_GetVMPropertyInfo> GetVMPropertyInfo(0x026F3970);
+RelocAddr <_GetVMPropertyInfo> GetVMPropertyInfo(0x026C2060);
 
 void IComplexType::AddRef(void)
 {

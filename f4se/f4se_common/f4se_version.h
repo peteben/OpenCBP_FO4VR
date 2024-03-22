@@ -6,11 +6,13 @@
 #define F4SE_VERSION_INTEGER_MINOR	6
 #define F4SE_VERSION_INTEGER_BETA	20
 #define F4SE_VERSION_VERSTRING		"0, 0, 6, 20"
-#define F4SE_VERSION_PADDEDSTRING	"0022"
-#define F4SE_VERSION_RELEASEIDX		22
+#define F4SE_VERSION_PADDEDSTRING	"0018"
+#define F4SE_VERSION_RELEASEIDX		20
 
 #define MAKE_EXE_VERSION_EX(major, minor, build, sub)	((((major) & 0xFF) << 24) | (((minor) & 0xFF) << 16) | (((build) & 0xFFF) << 4) | ((sub) & 0xF))
 #define MAKE_EXE_VERSION(major, minor, build)			MAKE_EXE_VERSION_EX(major, minor, build, 0)
+
+#define MAKE_EXE_VR_VERSION(major, minor, build)		MAKE_EXE_VERSION_EX(major, minor, build, 2)	// 2 for fallout vr
 
 #define GET_EXE_VERSION_MAJOR(a)	(((a) & 0xFF000000) >> 24)
 #define GET_EXE_VERSION_MINOR(a)	(((a) & 0x00FF0000) >> 16)
@@ -65,14 +67,16 @@
 #define RUNTIME_VERSION_1_10_120	MAKE_EXE_VERSION(1, 10, 120)	// 0x010A0780	creation club update 13 (no addresses changed)
 #define RUNTIME_VERSION_1_10_130	MAKE_EXE_VERSION(1, 10, 130)	// 0x010A0820	creation club update 14
 #define RUNTIME_VERSION_1_10_138	MAKE_EXE_VERSION(1, 10, 138)	// 0x010A08A0	creation club update 15
-#define RUNTIME_VERSION_1_10_162	MAKE_EXE_VERSION(1, 10, 162)	// 0x010A0A20	creation club update 16
-#define RUNTIME_VERSION_1_10_163	MAKE_EXE_VERSION(1, 10, 163)	// 0x010A0A30	creation club update 17
+
+// VR versions
+
+#define RUNTIME_VR_VERSION_1_2_72	MAKE_EXE_VR_VERSION(1, 2, 72)	// 0x01020482
 
 #define PACKED_F4SE_VERSION		MAKE_EXE_VERSION(F4SE_VERSION_INTEGER, F4SE_VERSION_INTEGER_MINOR, F4SE_VERSION_INTEGER_BETA)
 
 // information about the state of the game at the time of release
 #define F4SE_TARGETING_BETA_VERSION	0
-#define CURRENT_RELEASE_RUNTIME		RUNTIME_VERSION_1_10_163
+#define CURRENT_RELEASE_RUNTIME		RUNTIME_VR_VERSION_1_2_72
 #define CURRENT_RELEASE_F4SE_STR	"0.6.20"
 
 #endif /* __F4SE_VERSION_H__ */

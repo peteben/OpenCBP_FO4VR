@@ -86,9 +86,9 @@ std::string spaces(int n) {
     return s;
 }
 
-bool printStuff(NiAVObject *avObj, int depth) {
-    std::string sss = spaces(depth);
-    const char *ss = sss.c_str();
+//bool printStuff(NiAVObject *avObj, int depth) {
+    //std::string sss = spaces(depth);
+    //const char *ss = sss.c_str();
     //logger.info("%savObj Name = %s, RTTI = %s\n", ss, avObj->m_name, avObj->GetRTTI()->name);
 
     //NiNode *node = avObj->GetAsNiNode();
@@ -96,7 +96,7 @@ bool printStuff(NiAVObject *avObj, int depth) {
     //	logger.info("%snode %s, RTTI %s\n", ss, node->m_name, node->GetRTTI()->name);
     //}
     //return false;
-}
+//}
 
 template<class T>
 inline void safe_delete(T*& in) {
@@ -125,10 +125,16 @@ void UpdateActors() {
 
     //logger.error("scan Cell\n");
     auto player = DYNAMIC_CAST(LookupFormByID(0x14), TESForm, Actor);
-    if (!player || !player->unkF0) goto FAILED;
+    if (!player || !player->unkF0) {
+        //logger.Error("Player failed\n");
+        return;
+    }
 
     auto cell = player->parentCell;
-    if (!cell) goto FAILED;
+    if (!cell) {
+        logger.Error("Cell failed\n");
+        return;
+    }
 
     if (cell != curCell) {
         logger.Error("cell change %d\n", cell->formID);
@@ -232,7 +238,6 @@ void UpdateActors() {
         }
     }
 
-FAILED:
     return;
     //QueryPerformanceCounter(&endingTime);
     //elapsedMicroseconds.QuadPart = endingTime.QuadPart - startingTime.QuadPart;

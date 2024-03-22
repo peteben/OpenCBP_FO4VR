@@ -30,7 +30,7 @@ namespace papyrusGame
 	VMArray<PluginInfo> GetInstalledPlugins(StaticFunctionTag * base)
 	{
 		VMArray<PluginInfo> result;
-		UInt8 modCount = (*g_dataHandler)->modList.loadedMods.count;
+		UInt8 modCount = (*g_dataHandler)->modList.loadedModCount;
 		for (UInt32 i = 0; i < modCount; i++)
 		{
 			ModInfo * modInfo = (*g_dataHandler)->modList.loadedMods[i];
@@ -49,18 +49,8 @@ namespace papyrusGame
 	VMArray<PluginInfo> GetInstalledLightPlugins(StaticFunctionTag * base)
 	{
 		VMArray<PluginInfo> result;
-		UInt8 modCount = (*g_dataHandler)->modList.lightMods.count;
-		for (UInt32 i = 0; i < modCount; i++)
-		{
-			ModInfo * modInfo = (*g_dataHandler)->modList.lightMods[i];
 
-			PluginInfo info;
-			info.Set<UInt32>("index", modInfo->modIndex);
-			info.Set<BSFixedString>("name", modInfo->name);
-			info.Set<BSFixedString>("author", modInfo->author.Get());
-			info.Set<BSFixedString>("description", modInfo->description.Get());
-			result.Push(&info);
-		}
+		// no light mods
 
 		return result;
 	}

@@ -8,7 +8,7 @@
 
 CbpLogger::CbpLogger(const char *fname) {
 #ifdef LOG_ON
-	handle = fopen(fname, "a");
+	handle = fopen(fname, "w");
 	if (handle) {
 		fprintf(handle, "CBP Log initialized\n");
 	}

@@ -85,7 +85,7 @@ public:
 	virtual bool				Unk_27() { return false; };
 
 	MEMBER_FN_PREFIX(NiObject);
-	DEFINE_MEMBER_FN(Internal_IsEqual, bool, 0x01B94A90, NiObject * object);
+	DEFINE_MEMBER_FN(Internal_IsEqual, bool, 0x01C13EA0, NiObject * object);
 };
 
 // 28
@@ -108,7 +108,7 @@ public:
 	bool HasExtraData(const BSFixedString & name) { return GetExtraData(name) != nullptr; }
 
 	MEMBER_FN_PREFIX(NiObjectNET);
-	DEFINE_MEMBER_FN(Internal_AddExtraData, bool, 0x01B978C0, NiExtraData * extraData);
+	DEFINE_MEMBER_FN(Internal_AddExtraData, bool, 0x01C16CD0, NiExtraData * extraData);
 };
 
 // 120
@@ -137,12 +137,17 @@ public:
 	virtual void SetMaterialNeedsUpdate(); // empty?
 	virtual void SetDefaultMaterialNeedsUpdateFlag(); // empty?
 	virtual void SetAppCulled(bool set);
-	virtual NiAVObject * GetObjectByName(const BSFixedString * nodeName);
+//	virtual NiAVObject * GetObjectByName(const BSFixedString * nodeName);
+	virtual void unkwrongfunc0();
 	virtual void SetSelectiveUpdateFlags(bool * unk1, bool unk2, bool * unk3);
-	virtual void UpdateDownwardPass();
-	virtual void UpdateSelectedDownwardPass();
+	virtual void UpdateDownwardPass(NiUpdateData* ud, std::uint32_t flags);
+//	virtual void UpdateSelectedDownwardPass();
+	virtual NiAVObject * GetObjectByName(const BSFixedString * nodeName);
 	virtual void UpdateRigidDownwardPass();
 	virtual void UpdateWorldBound();
+	virtual void unka0();
+	virtual void unka8();
+	virtual void unkb0();
 	virtual void UpdateWorldData(NiUpdateData * ctx);
 	virtual void UpdateTransformAndBounds();
 	virtual void UpdateTransforms();
@@ -197,8 +202,8 @@ public:
 	UInt32			unk11C;				// 11C
 
 	MEMBER_FN_PREFIX(NiAVObject);
-	DEFINE_MEMBER_FN(GetAVObjectByName, NiAVObject*, 0x01C93980, BSFixedString * name, bool unk1, bool unk2);
-	DEFINE_MEMBER_FN(SetScenegraphChange, void, 0x01BA47C0);
+	DEFINE_MEMBER_FN(GetAVObjectByName, NiAVObject*, 0x01D137A0, BSFixedString * name, bool unk1, bool unk2);
+	DEFINE_MEMBER_FN(SetScenegraphChange, void, 0x01C23E10);
 
 	// Return true in the functor to halt traversal
 	template<typename T>

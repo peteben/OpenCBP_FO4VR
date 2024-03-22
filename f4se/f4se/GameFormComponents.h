@@ -220,8 +220,8 @@ public:
 	UInt64			unk30[7];		// 30
 
 	MEMBER_FN_PREFIX(TESActorBaseData);
-	DEFINE_MEMBER_FN(SetSex, void, 0x00149720, UInt32 unk1, bool isFemale, UInt32 unk2); // unk1 = 1, unk2 = 1
-	DEFINE_MEMBER_FN(GetLevel, UInt16, 0x001497F0);
+	DEFINE_MEMBER_FN(SetSex, void, 0x00150350, UInt32 unk1, bool isFemale, UInt32 unk2); // unk1 = 1, unk2 = 1
+	DEFINE_MEMBER_FN(GetLevel, UInt16, 0x00150420);
 };
 STATIC_ASSERT(sizeof(TESActorBaseData) == 0x68);
 
@@ -434,7 +434,7 @@ public:
 	void	* unk10;	// 10
 
 	MEMBER_FN_PREFIX(TESDescription);
-	DEFINE_MEMBER_FN(Get, void, 0x0014FAF0, BSString * out, TESForm * parent);
+	DEFINE_MEMBER_FN(Get, void, 0x00156720, BSString * out, TESForm * parent);
 };
 
 // 10
@@ -739,7 +739,7 @@ class IMovementState : public IMovementInterface
 public:
 	virtual void	Unk_01() = 0;
 	virtual void	Unk_02() = 0;
-	virtual void	Unk_03() = 0;
+	virtual void	Unk_03(NiPoint3& pos) = 0;
 	virtual void	Unk_04() = 0;
 	virtual void	Unk_05() = 0;
 	virtual void	Unk_06() = 0;
@@ -757,7 +757,7 @@ public:
 	virtual void	Unk_12() = 0;
 	virtual void	Unk_13() = 0;
 	virtual void	Unk_14() = 0;
-	virtual void	Unk_15() = 0;
+	virtual int 	Unk_15() = 0;
 	virtual void	Unk_16() = 0;
 	virtual void	Unk_17() = 0;
 	virtual void	Unk_18() = 0;
@@ -777,7 +777,7 @@ class ActorState : public IMovementState
 public:
 	virtual void	Unk_01();
 	virtual void	Unk_02();
-	virtual void	Unk_03();
+	virtual void	Unk_03(NiPoint3& pos);
 	virtual void	Unk_04();
 	virtual void	Unk_05();
 	virtual void	Unk_06();
@@ -795,7 +795,7 @@ public:
 	virtual void	Unk_12();
 	virtual void	Unk_13();
 	virtual void	Unk_14();
-	virtual void	Unk_15();
+	virtual int 	Unk_15();
 	virtual void	Unk_16();
 	virtual void	Unk_17();
 	virtual void	Unk_18();
@@ -1394,12 +1394,12 @@ public:
 		UInt64	unk10[(0x78 - 0x08) >> 3];
 
 		MEMBER_FN_PREFIX(Evaluator);
-		DEFINE_MEMBER_FN(ctor, void, 0x0072A770, TESForm * a1, TESForm * a2, UInt64 unk1); // a1 might be player or subject, not sure yet
+		DEFINE_MEMBER_FN(ctor, void, 0x007189B0, TESForm * a1, TESForm * a2, UInt64 unk1); // a1 might be player or subject, not sure yet
 	};
 
 	MEMBER_FN_PREFIX(Condition);
 	// DB2ACB0447C58B663FE4E9C862B96256D0C2716D+15
-	DEFINE_MEMBER_FN(Evaluate, bool, 0x0072C530, Evaluator * eval); // Evaluates only a single condition
+	DEFINE_MEMBER_FN(Evaluate, bool, 0x0071A770, Evaluator * eval); // Evaluates only a single condition
 };
 STATIC_ASSERT(offsetof(Condition, referenceType) == 0x31);
 STATIC_ASSERT(sizeof(Condition) == 0x38);

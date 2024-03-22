@@ -39,7 +39,7 @@ void F4SE_Initialize(void)
 	if(isInit) return;
 	isInit = true;
 
-	gLog.OpenRelative(CSIDL_MYDOCUMENTS, "\\My Games\\Fallout4\\F4SE\\f4se.log");
+	gLog.OpenRelative(CSIDL_MYDOCUMENTS, "\\My Games\\Fallout4VR\\F4SE\\f4sevr.log");
 
 #ifndef _DEBUG
 	__try {
@@ -48,7 +48,7 @@ void F4SE_Initialize(void)
 		FILETIME	now;
 		GetSystemTimeAsFileTime(&now);
 
-		_MESSAGE("F4SE runtime: initialize (version = %d.%d.%d %08X %08X%08X, os = %s)",
+		_MESSAGE("F4SEVR runtime: initialize (version = %d.%d.%d %08X %08X%08X, os = %s)",
 			F4SE_VERSION_INTEGER, F4SE_VERSION_INTEGER_MINOR, F4SE_VERSION_INTEGER_BETA, RUNTIME_VERSION,
 			now.dwHighDateTime, now.dwLowDateTime, GetOSInfoStr().c_str());
 

@@ -241,12 +241,12 @@ public:
 	UInt32 CreateRefHandle(void);
 
 	MEMBER_FN_PREFIX(TESObjectREFR);
-	DEFINE_MEMBER_FN(GetReferenceName, const char *, 0x0040B760);
-	DEFINE_MEMBER_FN(GetWorldspace, TESWorldSpace*, 0x0040F290);
-	DEFINE_MEMBER_FN(GetInventoryWeight, float, 0x00400470);
-	DEFINE_MEMBER_FN(GetCarryWeight, float, 0x00D871F0);
+	DEFINE_MEMBER_FN(GetReferenceName, const char *, 0x003F3A70);
+	DEFINE_MEMBER_FN(GetWorldspace, TESWorldSpace*, 0x003F75A0);
+	DEFINE_MEMBER_FN(GetInventoryWeight, float, 0x003E8770);
+	DEFINE_MEMBER_FN(GetCarryWeight, float, 0x00DD7C90);
 	// 7055D6CB4B64E11E63908512704F8871CEC025D3+11E
-	DEFINE_MEMBER_FN_1(ForEachAlias, void, 0x003F7960, IAliasFunctor * functor);
+	DEFINE_MEMBER_FN_1(ForEachAlias, void, 0x003DFC00, IAliasFunctor * functor);
 };
 STATIC_ASSERT(offsetof(TESObjectREFR, parentCell) == 0xB8);
 STATIC_ASSERT(offsetof(TESObjectREFR, baseForm) == 0xE0);
@@ -267,7 +267,7 @@ public:
 	virtual void	Unk_CC();
 	virtual void	Unk_CD();
 	virtual void	Unk_CE();
-	virtual void	Unk_CF();
+	virtual void	Update(float delta);
 	virtual void	Unk_D0();
 	virtual void	Unk_D1();
 	virtual void	Unk_D2();
@@ -430,7 +430,7 @@ public:
 		Data08 * unk08;	// 08
 
 		MEMBER_FN_PREFIX(MiddleProcess);
-		DEFINE_MEMBER_FN(UpdateEquipment, void, 0x00E60860, Actor * actor, UInt32 flags); 
+		DEFINE_MEMBER_FN(UpdateEquipment, void, 0x00EB4B40, Actor * actor, UInt32 flags); 
 	};
 	MiddleProcess * middleProcess;					// 300
 	UInt64	unk308[(0x338-0x308)/8];
@@ -464,9 +464,9 @@ public:
 	bool GetEquippedExtraData(UInt32 slotIndex, ExtraDataList ** extraData);
 
 	MEMBER_FN_PREFIX(Actor);
-	DEFINE_MEMBER_FN(QueueUpdate, void, 0x00D8A1F0, bool bDoFaceGen, UInt32 unk2, bool DoQueue, UInt32 flags); // 0, 0, 1, 0
-	DEFINE_MEMBER_FN(IsHostileToActor, bool, 0x00D91080, Actor * actor);
-	DEFINE_MEMBER_FN(UpdateEquipment, void, 0x00408270); 
+	DEFINE_MEMBER_FN(QueueUpdate, void, 0x00DDAD60, bool bDoFaceGen, UInt32 unk2, bool DoQueue, UInt32 flags); // 0, 0, 1, 0
+	DEFINE_MEMBER_FN(IsHostileToActor, bool, 0x00DE1CD0, Actor * actor);
+	DEFINE_MEMBER_FN(UpdateEquipment, void, 0x003F0580); 
 };
 STATIC_ASSERT(offsetof(Actor, equipData) == 0x428);
 STATIC_ASSERT(offsetof(Actor::MiddleProcess::Data08, equipData) == 0x288);
@@ -508,7 +508,8 @@ public:
 	tArray<ObjectiveData> objData;	// 7D8
 	UInt64	unk458[(0xB70 - 0x7F0) / 8];	// 7F0
 	ActorEquipData	* playerEquipData;	// B70 - First person?
-	NiNode			* firstPersonSkeleton;	// B78
+	UInt64 unkb76[(0xFE8 - 0xB78) / 8];
+	NiNode			* firstPersonSkeleton;	// B78   VR looks to be FE8
 	UInt64	unkB68[(0xD00-0xB80)/8];	// B78
 	tArray<BGSCharacterTint::Entry*> * tints;	// D00
 	UInt64	unkC90[(0xE10-0xCF8)/8];	// CF8
@@ -518,4 +519,4 @@ extern RelocPtr <PlayerCharacter*> g_player;
 
 STATIC_ASSERT(offsetof(PlayerCharacter, menuOpenClose) == 0x490);
 STATIC_ASSERT(offsetof(PlayerCharacter, playerEquipData) == 0xB70);
-STATIC_ASSERT(offsetof(PlayerCharacter, tints) == 0xD00);
+STATIC_ASSERT(offsetof(PlayerCharacter, tints) == 0x1170);

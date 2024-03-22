@@ -18,16 +18,17 @@ public:
 	virtual void	SetAt(UInt32 index, NiAVObject * obj);
 	virtual void	Unk_42(void);
 
-	NiTArray <NiAVObject *>	m_children;	// 120
+	UInt32					pad120[0x10];	// 120 - offset so that m_children lines up
+	NiTArray <NiAVObject *>	m_children;		// 160
 	float					unk138;
 	float					unk13C;
 
 	static NiNode * Create(UInt16 children = 0);
 
 	MEMBER_FN_PREFIX(NiNode);
-	DEFINE_MEMBER_FN(ctor, NiNode*, 0x01B98920, UInt16 children);
+	DEFINE_MEMBER_FN(ctor, NiNode*, 0x01C17D30, UInt16 children);
 };
-STATIC_ASSERT(sizeof(NiNode) == 0x140);
+STATIC_ASSERT(sizeof(NiNode) == 0x180);
 
 // 1C0
 class BSFadeNode : public NiNode
